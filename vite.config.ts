@@ -58,7 +58,7 @@ export default defineConfig({
         workbox: {
           navigateFallback: "_shell.html",
           // Kept in sync with scripts/postbuild-sw.mjs, which regenerates
-          // sw.js against the final .output/public (the plugin's own sw.js
+          // sw.js against the final dist/client (the plugin's own sw.js
           // is generated before nitro assembles the client assets).
           globPatterns: ["**/*.{js,css,woff,woff2,svg,png,ico,webmanifest,jpg}"],
           // Manifest/home-screen icons are fetched by the OS browser in its
