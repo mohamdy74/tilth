@@ -60,7 +60,9 @@ export default defineConfig({
           // Kept in sync with scripts/postbuild-sw.mjs, which regenerates
           // sw.js against the final dist/client (the plugin's own sw.js
           // is generated before nitro assembles the client assets).
-          globPatterns: ["**/*.{js,css,woff,woff2,svg,png,ico,webmanifest,jpg}"],
+          // woff2 only: every service-worker-capable browser supports woff2, so
+          // precaching the legacy .woff fallbacks is dead weight (DOWNFORCE lesson).
+          globPatterns: ["**/*.{js,css,woff2,svg,png,ico,webmanifest,jpg}"],
           // Manifest/home-screen icons are fetched by the OS browser in its
           // own context at install time — it never consults this service
           // worker's cache, so precaching them is dead weight (DOWNFORCE

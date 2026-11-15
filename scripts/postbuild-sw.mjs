@@ -21,7 +21,9 @@ const shellRevision = createHash("md5")
 
 await generateSW({
   globDirectory: outDir,
-  globPatterns: ["**/*.{js,css,woff,woff2,svg,png,ico,webmanifest,jpg}"],
+  // woff2 only, same as vite.config.ts: SW-capable browsers all support woff2;
+  // the legacy .woff fallbacks stay served but are not precached.
+  globPatterns: ["**/*.{js,css,woff2,svg,png,ico,webmanifest,jpg}"],
   // The OS fetches manifest/home-screen icons in its own context at install
   // time and never consults this cache — precaching them is dead weight
   // (DOWNFORCE lesson). The worker must never precache itself.
