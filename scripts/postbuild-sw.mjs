@@ -1,7 +1,7 @@
 // vite-plugin-pwa writes sw.js during the vite build, before nitro has
-// assembled .output/public, so its precache list misses the client assets
+// assembled .output/client, so its precache list misses the client assets
 // (assets/*.js|css|woff2) and offline would break. This script regenerates
-// the service worker against the FINAL .output/public with workbox-build.
+// the service worker against the FINAL .output/client with workbox-build.
 // Keep the workbox options in sync with vite.config.ts.
 
 import { generateSW } from "workbox-build";
@@ -9,9 +9,9 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
-const outDir = join(process.cwd(), ".output", "public");
+const outDir = join(process.cwd(), ".output", "client");
 if (!existsSync(join(outDir, "_shell.html"))) {
-  console.error("postbuild-sw: .output/public/_shell.html missing — must run after vite build");
+  console.error("postbuild-sw: .output/client/_shell.html missing — must run after vite build");
   process.exit(1);
 }
 
@@ -48,4 +48,4 @@ for (const needle of ["_shell.html", "assets/", "SKIP_WAITING", "precache"]) {
 for (const f of readdirSync(outDir)) {
   if (f.startsWith("workbox-")) rmSync(join(outDir, f));
 }
-console.log("postbuild-sw: regenerated .output/public/sw.js against the final build output");
+console.log("postbuild-sw: regenerated .output/client/sw.js against the final build output");
