@@ -58,7 +58,7 @@ export default defineConfig({
         workbox: {
           navigateFallback: "_shell.html",
           // Kept in sync with scripts/postbuild-sw.mjs, which regenerates
-          // sw.js against the final dist/client (the plugin's own sw.js
+          // sw.js against the final .output/public (the plugin's own sw.js
           // is generated before nitro assembles the client assets).
           // woff2 only: every service-worker-capable browser supports woff2, so
           // precaching the legacy .woff fallbacks is dead weight (DOWNFORCE lesson).
