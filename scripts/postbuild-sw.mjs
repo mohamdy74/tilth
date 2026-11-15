@@ -29,7 +29,9 @@ function findShellDirs(root, matches = []) {
 const cwd = process.cwd();
 const outDir = [join(cwd, ".output"), join(cwd, "dist")]
   .flatMap((root) => findShellDirs(root))
-  .sort((a, b) => statSync(join(b, "_shell.html")).mtimeMs - statSync(join(a, "_shell.html")).mtimeMs)[0];
+  .sort(
+    (a, b) => statSync(join(b, "_shell.html")).mtimeMs - statSync(join(a, "_shell.html")).mtimeMs,
+  )[0];
 
 if (!outDir) {
   console.error(

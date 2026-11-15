@@ -75,13 +75,18 @@ export function morningDigest(s: DigestState): MorningDigest {
 /** Evening digest: the day's completed work, plus what is still ahead. */
 export function eveningDigest(s: DigestState): EveningDigest {
   const open = openTasks(s.tasks);
-  const completedToday = s.tasks.filter(
-    (t) =>
-      !t.deletedAt &&
-      t.status === "done" &&
-      t.completedAt !== undefined &&
-      toLocalDay(new Date(t.completedAt), s.dayStartHour, s.timeZone) === s.today,
-  );
+  // Cheap chronological prefilter: an instant whose wall-clock day equals
+  // `today` can only fall on the UTC dates today-1…today+1 (zones span ±14h,
+  // and dayStartHour shifts by <24h). Old completions are rejected with a
+  // string compare instead of an Intl resolution — same result, far cheaper.
+  const lo = addDays(s.today, -1);
+  const hi = addDays(s.today, 1);
+  const completedToday = s.tasks.filter((t) => {
+    if (t.deletedAt || t.status !== "done" || t.completedAt === undefined) return false;
+    const utcDay = t.completedAt.slice(0, 10);
+    if (utcDay < lo || utcDay > hi) return false;
+    return toLocalDay(new Date(t.completedAt), s.dayStartHour, s.timeZone) === s.today;
+  });
   const doneHabitIds = new Set(
     s.logs
       .filter((l) => !l.deletedAt && l.status === "done" && l.localDay === s.today)

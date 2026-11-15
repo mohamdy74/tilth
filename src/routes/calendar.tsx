@@ -179,10 +179,7 @@ function CalendarPage() {
         <div className="mt-4">
           <div className="grid grid-cols-7 gap-1.5 pb-1">
             {weekDays(current, weekStartsOn).map((d) => (
-              <span
-                key={d}
-                className="text-center text-[10px] font-medium text-muted-foreground"
-              >
+              <span key={d} className="text-center text-[10px] font-medium text-muted-foreground">
                 {weekdayShort(locale, weekdayOf(d))}
               </span>
             ))}
@@ -193,46 +190,47 @@ function CalendarPage() {
                 {wk.map((day) => {
                   const inMonth = day.startsWith(startOfMonth(current).slice(0, 7));
                   const load = monthLoad?.get(day) ?? 0;
-                const heat = maxMonthLoad === 0 ? 0 : load / maxMonthLoad;
-                const isToday = day === today;
-                return (
-                  <button
-                    key={day}
-                    type="button"
-                    title={t.cal.openWeek}
-                    aria-label={t.cal.openWeek + " — " + dayNumber(locale, day)}
-                    onClick={() => {
-                      setAnchor(day);
-                      setSelected(day);
-                      setCalMode("week");
-                    }}
-                    className={
-                      "flex min-h-12 flex-col items-center justify-center gap-1 rounded-md border p-1 text-center transition-colors hover:bg-accent/40 " +
-                      (isToday
-                        ? "border-primary/60"
-                        : inMonth
-                          ? "border-border"
-                          : "border-transparent opacity-45")
-                    }
-                  >
-                    <span
+                  const heat = maxMonthLoad === 0 ? 0 : load / maxMonthLoad;
+                  const isToday = day === today;
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      title={t.cal.openWeek}
+                      aria-label={t.cal.openWeek + " — " + dayNumber(locale, day)}
+                      onClick={() => {
+                        setAnchor(day);
+                        setSelected(day);
+                        setCalMode("week");
+                      }}
                       className={
-                        "text-[11px] font-semibold tabular-nums " + (isToday ? "text-primary" : "")
+                        "flex min-h-12 flex-col items-center justify-center gap-1 rounded-md border p-1 text-center transition-colors hover:bg-accent/40 " +
+                        (isToday
+                          ? "border-primary/60"
+                          : inMonth
+                            ? "border-border"
+                            : "border-transparent opacity-45")
                       }
                     >
-                      {dayNumber(locale, day)}
-                    </span>
-                    <span
-                      aria-hidden
-                      className="block h-1.5 w-6 rounded-full bg-primary"
-                      style={{
-                        opacity: Math.min(0.95, 0.1 + heat * 0.9),
-                        visibility: load === 0 ? "hidden" : "visible",
-                      }}
-                    />
-                  </button>
-                );
-              })}
+                      <span
+                        className={
+                          "text-[11px] font-semibold tabular-nums " +
+                          (isToday ? "text-primary" : "")
+                        }
+                      >
+                        {dayNumber(locale, day)}
+                      </span>
+                      <span
+                        aria-hidden
+                        className="block h-1.5 w-6 rounded-full bg-primary"
+                        style={{
+                          opacity: Math.min(0.95, 0.1 + heat * 0.9),
+                          visibility: load === 0 ? "hidden" : "visible",
+                        }}
+                      />
+                    </button>
+                  );
+                })}
               </div>
             ))}
           </div>

@@ -29,20 +29,6 @@ import {
 import { todayLocal, useStore } from "@/lib/store";
 
 export const Route = createLazyFileRoute("/insights")({
-  head: () => ({
-    meta: [
-      { title: "Insights — Tilth" },
-      {
-        name: "description",
-        content: "Clear weekly and monthly trends across tasks, habits and focus.",
-      },
-      { property: "og:title", content: "Insights — Tilth" },
-      {
-        property: "og:description",
-        content: "Clear weekly and monthly trends across tasks, habits and focus.",
-      },
-    ],
-  }),
   component: InsightsPage,
 });
 

@@ -432,6 +432,13 @@ const en = {
     emptyLine: "Capture a thought, a plan or a link — it stays on your device.",
   },
 
+  capture: {
+    title: "Quick capture",
+    placeholder: "Type and press Enter — add another right away.",
+    hint: "Use !high for priority, #tag, and today / tomorrow / بكرة for dates.",
+    added: "Task added.",
+    close: "Close",
+  },
   command: {
     contentHeading: "From your data",
     open: "Search or jump to…",
@@ -816,8 +823,7 @@ const ar: Dict = {
     nameRequired: "أعطِ المكافأة اسمًا.",
     priceInvalid: "أدخل سعرًا لا يقل عن عملة واحدة.",
     emptyTitle: "لا مكافآت بعد",
-    emptyBody:
-      "عرّف مكافآتك بنفسك — مثل «ساعة لعب» أو «قهوة برة» — واستبدلها بالعملات التي تجمعها.",
+    emptyBody: "عرّف مكافآتك بنفسك — مثل «ساعة لعب» أو «قهوة برة» — واستبدلها بالعملات التي تجمعها.",
     history: "سجل الشراء",
     historyHint: "الاسترداد يعمل حتى نهاية اليوم، وبشرط عدم الاستخدام.",
     historyEmpty: "لا عمليات شراء بعد.",
@@ -957,6 +963,13 @@ const ar: Dict = {
     emptyLine: "دوّن فكرة أو خطة أو رابط — تبقى على جهازك.",
   },
 
+  capture: {
+    title: "التقاط سريع",
+    placeholder: "اكتب واضغط Enter — ثم أضف غيرها مباشرة.",
+    hint: "استخدم !عالية للأولوية، و#وسم، و«اليوم/غدًا/بكرة» للتاريخ.",
+    added: "أُضيفت المهمة.",
+    close: "إغلاق",
+  },
   command: {
     contentHeading: "من بياناتك",
     open: "ابحث أو انتقل إلى…",

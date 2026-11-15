@@ -26,7 +26,8 @@ import { resolveAccent } from "@/lib/themes";
 import { isActive } from "@/lib/focusTime";
 import { applyUpdate, registerPwa } from "@/lib/pwa";
 import { toLocalDay } from "@/lib/dates";
-import { eveningDigest, morningDigest } from "@/lib/digest";
+import { composeDigest } from "@/lib/digestNotify";
+import { QuickCapture } from "./QuickCapture";
 
 type Cmd = {
   key: string;
@@ -61,11 +62,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const settings = useStore((s) => s.settings);
   const settingsAccent = useStore((s) => s.settings.accent);
   const xpLedger = useStore((s) => s.xpLedger);
-  const tasks = useStore((s) => s.tasks);
-  const habits = useStore((s) => s.habits);
-  const logs = useStore((s) => s.habitLogs);
-  const sessions = useStore((s) => s.focusSessions);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const moreActive = MOBILE_MORE.some((k) => pathname === navOf(k).to);
   const settingsItem = navOf("settings");
@@ -117,6 +115,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (el?.closest?.("input, textarea, select, [contenteditable]")) return;
         setOpen((o) => !o);
       }
+      // "n" opens global quick capture from anywhere outside a field/dialog.
+      if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        const el = e.target as HTMLElement | null;
+        if (el?.closest?.("input, textarea, select, [contenteditable]")) return;
+        if (document.querySelector("[role='dialog']")) return;
+        e.preventDefault();
+        setCaptureOpen(true);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -128,71 +134,46 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   // Quiet daily digest: at most one morning and one evening summary per day,
-  // only if the user turned it on, and only while the app is open — Tilth is
-  // local-first, there is no push server to deliver anything else.
+  // only if enabled and only while the app is open — there is no push server.
+  // The shell deliberately does NOT subscribe to the collections: state is
+  // read at fire time (getState), so a task edit never re-renders the shell
+  // and never tears down/restarts this interval.
+  const digestPrefs = settings.digest;
+  const dayStartHour = settings.dayStartHour;
   useEffect(() => {
-    if (!ready) return;
-    const digest = settings.digest;
-    if (!digest?.enabled) return;
+    if (!ready || !digestPrefs?.enabled) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const slotAt = (s: string) => {
-      const [h = 0, m = 0] = s.split(":").map(Number);
-      return h * 60 + m;
-    };
     const fire = () => {
       const now = new Date();
-      const today = toLocalDay(now, settings.dayStartHour, tz);
-      const hour = now.getHours();
-      const minutes = hour * 60 + now.getMinutes();
-      const state = {
-        tasks,
-        habits,
-        logs,
-        sessions,
-        today,
-        hour,
-        dayStartHour: settings.dayStartHour,
-        timeZone: tz,
-      };
-      let slot: "morning" | "evening";
-      let title: string;
-      let body: string;
-      if (hour < 17) {
-        if (minutes < slotAt(digest.morningAt)) return;
-        const d = morningDigest(state);
-        slot = "morning";
-        title = t.notif.morningTitle;
-        const parts = [t.dig.tasksDue.replace("{n}", String(d.tasksDue))];
-        if (d.overdue > 0) parts.push(t.dig.overdue.replace("{n}", String(d.overdue)));
-        parts.push(t.dig.habitsDue.replace("{n}", String(d.habitsDue)));
-        body =
-          d.tasksDue === 0 && d.overdue === 0 && d.habitsDue === 0
-            ? t.dig.quietDay
-            : parts.join(" · ");
-      } else {
-        if (minutes < slotAt(digest.eveningAt)) return;
-        const e = eveningDigest(state);
-        slot = "evening";
-        title = t.notif.eveningTitle;
-        const parts = [
-          t.dig.completedToday.replace("{n}", String(e.completedToday)),
-          t.dig.focusToday.replace("{n}", String(e.focusMinutes)),
-        ];
-        if (e.stillOpen > 0) parts.push(t.dig.stillOpen.replace("{n}", String(e.stillOpen)));
-        if (e.tomorrowOpen > 0) parts.push(t.dig.tomorrow.replace("{n}", String(e.tomorrowOpen)));
-        body =
-          e.completedToday === 0 && e.stillOpen === 0 && e.tomorrowOpen === 0
-            ? t.dig.quietDay
-            : parts.join(" · ");
-      }
+      const s = useStore.getState();
+      const note = composeDigest(
+        s.settings.digest,
+        {
+          tasks: s.tasks,
+          habits: s.habits,
+          logs: s.habitLogs,
+          sessions: s.focusSessions,
+          today: toLocalDay(now, s.settings.dayStartHour, tz),
+          hour: now.getHours(),
+          dayStartHour: s.settings.dayStartHour,
+          timeZone: tz,
+        },
+        t,
+      );
+      if (!note) return;
       try {
         const seen: Record<string, string> = JSON.parse(
           window.localStorage.getItem("tilth.digest") || "{}",
         );
-        if (seen[slot] === today) return;
-        new Notification(title, { body, tag: "tilth-digest-" + slot, icon: "/icons/icon-192.png" });
-        seen[slot] = today;
+        const today = toLocalDay(now, s.settings.dayStartHour, tz);
+        if (seen[note.slot] === today) return;
+        new Notification(note.title, {
+          body: note.body,
+          tag: "tilth-digest-" + note.slot,
+          icon: "/icons/icon-192.png",
+        });
+        seen[note.slot] = today;
         window.localStorage.setItem("tilth.digest", JSON.stringify(seen));
       } catch {
         /* ignore */
@@ -201,7 +182,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     fire();
     const id = window.setInterval(fire, 60_000);
     return () => window.clearInterval(id);
-  }, [ready, settings, tasks, habits, logs, sessions, t]);
+  }, [ready, digestPrefs, dayStartHour, t]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -215,6 +196,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           </span>
           <span className="font-display text-lg font-semibold">{t.appName}</span>
         </div>
+        <button
+          type="button"
+          onClick={() => setCaptureOpen(true)}
+          className="mb-2 flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <Plus className="size-4" aria-hidden />
+          {t.capture.title}
+          <kbd className="ms-auto rounded border border-primary-foreground/30 px-1.5 text-[10px] font-normal">
+            N
+          </kbd>
+        </button>
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -371,6 +363,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         mobileOffset={{ bottom: "calc(76px + env(safe-area-inset-bottom))" }}
         offset={{ bottom: 24 }}
       />
+
+      {captureOpen && <QuickCapture onClose={() => setCaptureOpen(false)} />}
 
       {open && <CommandPalette onClose={() => setOpen(false)} />}
     </div>
