@@ -1,43 +1,51 @@
-// vite-plugin-pwa generates sw.js in the client build output directory, but the
-// nitro build (which assembles .output/public) can finish copying before the
-// service worker file is written, leaving /sw.js missing from the final output.
-// This script locates the generated sw.js and copies it into .output/public so
-// the published app serves the service worker at the expected URL.
+// vite-plugin-pwa writes sw.js during the vite build, before nitro has
+// assembled .output/public, so its precache list misses the client assets
+// (assets/*.js|css|woff2) and offline would break. This script regenerates
+// the service worker against the FINAL .output/public with workbox-build.
+// Keep the workbox options in sync with vite.config.ts.
 
-import { cpSync, existsSync, readdirSync } from "node:fs";
+import { generateSW } from "workbox-build";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
-const SKIP = new Set([".git", "node_modules", ".output", "src", "public", "scripts"]);
-
-function findSwFile(dir, depth) {
-  if (depth > 4) return null;
-  let entries = [];
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return null;
-  }
-  for (const entry of entries) {
-    const full = join(dir, entry.name);
-    if (entry.isFile()) {
-      if (entry.name === "sw.js") return full;
-    } else if (entry.isDirectory() && !SKIP.has(entry.name)) {
-      const found = findSwFile(full, depth + 1);
-      if (found) return found;
-    }
-  }
-  return null;
-}
-
-const dest = join(process.cwd(), ".output", "public", "sw.js");
-if (existsSync(dest)) {
-  console.log("postbuild-sw: sw.js already present in .output/public");
-  process.exit(0);
-}
-const found = findSwFile(process.cwd(), 0);
-if (!found) {
-  console.error("postbuild-sw: could not find a generated sw.js anywhere in the build output");
+const outDir = join(process.cwd(), ".output", "public");
+if (!existsSync(join(outDir, "_shell.html"))) {
+  console.error("postbuild-sw: .output/public/_shell.html missing — must run after vite build");
   process.exit(1);
 }
-cpSync(found, dest);
-console.log("postbuild-sw: copied " + found + " -> .output/public/sw.js");
+
+const shellRevision = createHash("md5")
+  .update(readFileSync(join(outDir, "_shell.html")))
+  .digest("hex");
+
+await generateSW({
+  globDirectory: outDir,
+  globPatterns: ["**/*.{js,css,woff,woff2,svg,png,ico,webmanifest,jpg}"],
+  // The OS fetches manifest/home-screen icons in its own context at install
+  // time and never consults this cache — precaching them is dead weight
+  // (DOWNFORCE lesson). The worker must never precache itself.
+  globIgnores: ["icons/*.png", "sw.js", "workbox-*.js"],
+  additionalManifestEntries: [{ url: "_shell.html", revision: shellRevision }],
+  navigateFallback: "_shell.html",
+  cleanupOutdatedCaches: true,
+  skipWaiting: false,
+  clientsClaim: true,
+  inlineWorkboxRuntime: true,
+  swDest: join(outDir, "sw.js"),
+});
+
+// Self-check: the published worker must precache the app shell and the
+// hashed assets, and keep the SKIP_WAITING listener the update banner uses.
+const sw = readFileSync(join(outDir, "sw.js"), "utf8");
+for (const needle of ["_shell.html", "assets/", "SKIP_WAITING", "precache"]) {
+  if (!sw.includes(needle)) {
+    console.error(`postbuild-sw: generated sw.js is missing ${needle}`);
+    process.exit(1);
+  }
+}
+// Drop a stale workbox runtime left by the plugin-generated sw.js.
+for (const f of readdirSync(outDir)) {
+  if (f.startsWith("workbox-")) rmSync(join(outDir, f));
+}
+console.log("postbuild-sw: regenerated .output/public/sw.js against the final build output");
