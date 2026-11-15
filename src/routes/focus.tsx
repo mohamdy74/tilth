@@ -10,7 +10,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePrefs } from "@/components/app/preferences";
 import { Segmented } from "@/components/app/Segmented";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -180,13 +180,23 @@ function FocusPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [active, confirming, ready, mode, customWork, linkedTaskId]);
 
+  // Memoized: the 500 ms timer tick re-renders this page, and none of these
+  // depend on the tick — they must not recompute on every tick. Hooks stay
+  // above the !ready early return.
+  const today = todayLocal();
+  const liveSessions = useMemo(() => allSessions.filter((s) => !s.deletedAt), [allSessions]);
+  const doneMinutes = useMemo(() => workMinutesToday(liveSessions, today), [liveSessions, today]);
+  const openTasks = useMemo(
+    () => allTasks.filter((x) => !x.deletedAt && x.status !== "done"),
+    [allTasks],
+  );
+  const taskTitles = useMemo(
+    () => new Map(allTasks.filter((x) => !x.deletedAt).map((x) => [x.id, x.title])),
+    [allTasks],
+  );
+
   if (!ready) return <FocusSkeleton />;
 
-  const today = todayLocal();
-  const liveSessions = allSessions.filter((s) => !s.deletedAt);
-  const doneMinutes = workMinutesToday(liveSessions, today);
-  const openTasks = allTasks.filter((x) => !x.deletedAt && x.status !== "done");
-  const taskTitles = new Map(allTasks.filter((x) => !x.deletedAt).map((x) => [x.id, x.title]));
   const pct = target <= 0 ? 0 : Math.min(100, Math.round((doneMinutes / target) * 100));
 
   return (
@@ -431,8 +441,8 @@ function HistorySection({
   taskTitles: Map<string, string>;
 }) {
   const { t, locale } = usePrefs();
-  const groups = groupByDay(sessions);
-  const days = [...groups.keys()].sort((a, b) => b.localeCompare(a));
+  const groups = useMemo(() => groupByDay(sessions), [sessions]);
+  const days = useMemo(() => [...groups.keys()].sort((a, b) => b.localeCompare(a)), [groups]);
   if (days.length === 0) return <FocusEmpty />;
   return (
     <div className="mt-8">

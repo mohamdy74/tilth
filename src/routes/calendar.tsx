@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CalendarDays, ChevronLeft, ChevronRight, Columns, Sprout, Timer } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePrefs } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { OUTLINE_BTN } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Segmented } from "@/components/app/Segmented";
 import { addDays, addMonths, startOfMonth, weekdayOf } from "@/lib/dates";
 import { formatDate, formatNumber, type Locale } from "@/lib/i18n";
 import { todayLocal, useStore } from "@/lib/store";
-import { buildWeek, monthWeeks, type WeekCell } from "@/lib/weekView";
+import { buildWeek, monthWeeks, weekDays, type WeekCell } from "@/lib/weekView";
 import type { LocalDay, Priority } from "@/lib/types";
 
 export const Route = createFileRoute("/calendar")({
@@ -50,29 +50,35 @@ function CalendarPage() {
   const [calMode, setCalMode] = useState<"week" | "month">("week");
   const [selected, setSelected] = useState<LocalDay | null>(null);
 
-  if (!ready) return <CalendarSkeleton />;
-
+  // Derived data is memoized so store updates (and the focus timer's 500 ms
+  // ticks elsewhere) never re-run the grid math unless the inputs changed.
+  // Hooks must stay above the !ready early return.
   const today = todayLocal();
   const current = anchor ?? today;
-  const cells = buildWeek({
-    tasks: allTasks.filter((x) => !x.deletedAt),
-    habits: allHabits.filter((x) => !x.deletedAt),
-    logs: allLogs.filter((x) => !x.deletedAt),
-    sessions: allSessions.filter((x) => !x.deletedAt),
-    anchor: current,
-    today,
-    weekStartsOn,
-  });
+  const cells = useMemo(
+    () =>
+      buildWeek({
+        tasks: allTasks.filter((x) => !x.deletedAt),
+        habits: allHabits.filter((x) => !x.deletedAt),
+        logs: allLogs.filter((x) => !x.deletedAt),
+        sessions: allSessions.filter((x) => !x.deletedAt),
+        anchor: current,
+        today,
+        weekStartsOn,
+      }),
+    [allTasks, allHabits, allLogs, allSessions, current, today, weekStartsOn],
+  );
 
   // Month heat-grid (TIL-F09): week rows covering the anchored month, with
   // each day's load counted straight from stored LocalDay strings — the same
   // data rule the week grid follows; nothing is recomputed across timezones.
-  const monthGrid = calMode === "month" ? monthWeeks(current, weekStartsOn) : null;
-  const monthLoad = new Map<LocalDay, number>();
-  if (calMode === "month") {
+  const month = useMemo(() => {
+    if (calMode !== "month") return null;
+    const grid = monthWeeks(current, weekStartsOn);
+    const load = new Map<LocalDay, number>();
     const add = (day: LocalDay | undefined, n: number) => {
       if (!day) return;
-      monthLoad.set(day, (monthLoad.get(day) ?? 0) + n);
+      load.set(day, (load.get(day) ?? 0) + n);
     };
     for (const task of allTasks) {
       if (task.deletedAt || task.dueDate === undefined) continue;
@@ -86,9 +92,14 @@ function CalendarPage() {
       if (s.deletedAt || s.mode === "break") continue;
       add(s.localDay, 1);
     }
-  }
-  const maxMonthLoad = Math.max(0, ...monthLoad.values());
+    return { grid, load, max: Math.max(0, ...load.values()) };
+  }, [calMode, current, weekStartsOn, allTasks, allLogs, allSessions]);
+  const monthGrid = month?.grid ?? null;
+  const monthLoad = month?.load;
+  const maxMonthLoad = month?.max ?? 0;
   const monthEmpty = calMode === "month" && maxMonthLoad === 0;
+
+  if (!ready) return <CalendarSkeleton />;
 
   const weekHasAnything = cells.some(
     (c) =>
@@ -110,7 +121,7 @@ function CalendarPage() {
             onClick={() =>
               setAnchor(calMode === "week" ? addDays(current, -7) : addMonths(current, -1))
             }
-            aria-label={t.cal.prevWeek}
+            aria-label={calMode === "month" ? t.cal.prevMonth : t.cal.prevWeek}
             className={OUTLINE_BTN + " px-2"}
           >
             <ChevronLeft className="size-4 rtl-flip" aria-hidden />
@@ -120,7 +131,7 @@ function CalendarPage() {
             onClick={() =>
               setAnchor(calMode === "week" ? addDays(current, 7) : addMonths(current, 1))
             }
-            aria-label={t.cal.nextWeek}
+            aria-label={calMode === "month" ? t.cal.nextMonth : t.cal.nextWeek}
             className={OUTLINE_BTN + " px-2"}
           >
             <ChevronRight className="size-4 rtl-flip" aria-hidden />
@@ -165,12 +176,23 @@ function CalendarPage() {
       )}
 
       {calMode === "month" && monthGrid && (
-        <div className="mt-4 space-y-1.5">
-          {monthGrid.map((wk) => (
-            <div key={wk[0]} className="grid grid-cols-7 gap-1.5">
-              {wk.map((day) => {
-                const inMonth = day.startsWith(startOfMonth(current).slice(0, 7));
-                const load = monthLoad.get(day) ?? 0;
+        <div className="mt-4">
+          <div className="grid grid-cols-7 gap-1.5 pb-1">
+            {weekDays(current, weekStartsOn).map((d) => (
+              <span
+                key={d}
+                className="text-center text-[10px] font-medium text-muted-foreground"
+              >
+                {weekdayShort(locale, weekdayOf(d))}
+              </span>
+            ))}
+          </div>
+          <div className="space-y-1.5">
+            {monthGrid.map((wk) => (
+              <div key={wk[0]} className="grid grid-cols-7 gap-1.5">
+                {wk.map((day) => {
+                  const inMonth = day.startsWith(startOfMonth(current).slice(0, 7));
+                  const load = monthLoad?.get(day) ?? 0;
                 const heat = maxMonthLoad === 0 ? 0 : load / maxMonthLoad;
                 const isToday = day === today;
                 return (
@@ -211,8 +233,9 @@ function CalendarPage() {
                   </button>
                 );
               })}
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -374,9 +397,9 @@ function dayNumber(locale: Locale, day: LocalDay): string {
 
 function weekdayShort(locale: Locale, d: number): string {
   // 2023-01-01 was a Sunday, so the 1st + d lands on that weekday.
-  const day = new Date(Date.UTC(2023, 0, 1 + d));
-  return new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", {
+  // Goes through formatDate so the Intl.DateTimeFormat is cached (see i18n.ts).
+  return formatDate(locale, new Date(Date.UTC(2023, 0, 1 + d)), {
     weekday: "short",
     timeZone: "UTC",
-  }).format(day);
+  });
 }

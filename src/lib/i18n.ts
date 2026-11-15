@@ -358,6 +358,8 @@ const en = {
   cal: {
     prevWeek: "Previous week",
     nextWeek: "Next week",
+    prevMonth: "Previous month",
+    nextMonth: "Next month",
     thisWeek: "This week",
     today: "Today",
     tasksCount: "{n} due",
@@ -881,6 +883,8 @@ const ar: Dict = {
   cal: {
     prevWeek: "الأسبوع السابق",
     nextWeek: "الأسبوع التالي",
+    prevMonth: "الشهر السابق",
+    nextMonth: "الشهر التالي",
     thisWeek: "هذا الأسبوع",
     today: "اليوم",
     tasksCount: "{n} مستحقة",
@@ -1082,15 +1086,33 @@ const ar: Dict = {
 export const dictionaries: Record<Locale, Dict> = { en, ar };
 export type { Dict };
 
+// Cached Intl formatters: constructing them per call is measurably slow on
+// hot render paths (lists, timers ticking every 500 ms). Filled lazily inside
+// the functions, never at module top level (workerd SSR rule).
+const intlTag = (locale: Locale) => (locale === "ar" ? "ar-EG" : "en-US");
+const numberFmts = new Map<string, Intl.NumberFormat>();
+const dateFmts = new Map<string, Intl.DateTimeFormat>();
+const pluralRules = new Map<Locale, Intl.PluralRules>();
+
 /** Picks the correct plural form for a locale (Arabic has 6). */
 export function plural(locale: Locale, forms: PluralForms, n: number): string {
-  const rule = new Intl.PluralRules(locale).select(n);
-  const tpl = forms[rule] ?? forms.other;
+  let rule = pluralRules.get(locale);
+  if (!rule) {
+    rule = new Intl.PluralRules(locale);
+    pluralRules.set(locale, rule);
+  }
+  const tpl = forms[rule.select(n)] ?? forms.other;
   return tpl.replace("{n}", formatNumber(locale, n));
 }
 
 export function formatNumber(locale: Locale, n: number) {
-  return new Intl.NumberFormat(locale === "ar" ? "ar-EG" : "en-US").format(n);
+  const tag = intlTag(locale);
+  let f = numberFmts.get(tag);
+  if (!f) {
+    f = new Intl.NumberFormat(tag);
+    numberFmts.set(tag, f);
+  }
+  return f.format(n);
 }
 
 export function formatDate(
@@ -1098,5 +1120,11 @@ export function formatDate(
   d: Date,
   opts: Intl.DateTimeFormatOptions = { dateStyle: "full" },
 ) {
-  return new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", opts).format(d);
+  const key = intlTag(locale) + "\n" + JSON.stringify(opts);
+  let f = dateFmts.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(intlTag(locale), opts);
+    dateFmts.set(key, f);
+  }
+  return f.format(d);
 }
