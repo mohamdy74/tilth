@@ -2,7 +2,6 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   ChevronRight,
   Ellipsis,
-  FileText,
   Languages,
   ListTodo,
   Plus,
@@ -431,20 +430,6 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
           }
           onClose();
           navigate({ to: "/habits" });
-        },
-      },
-      {
-        key: "newFromTemplate",
-        label: t.command.newFromTemplate,
-        icon: FileText,
-        run: () => {
-          try {
-            window.sessionStorage.setItem("tilth.new-note", "1");
-          } catch {
-            /* ignore */
-          }
-          onClose();
-          navigate({ to: "/notes" });
         },
       },
       {
