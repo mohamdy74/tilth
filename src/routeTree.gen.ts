@@ -43,7 +43,7 @@ const InsightsRoute = InsightsRouteImport.update({
   id: '/insights',
   path: '/insights',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/insights.lazy').then((d) => d.Route))
 const NotesRoute = NotesRouteImport.update({
   id: '/notes',
   path: '/notes',
