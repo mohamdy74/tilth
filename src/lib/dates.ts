@@ -2,15 +2,31 @@ import type { LocalDay } from "./types";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/*
+ * Intl formatters are expensive to construct and were previously rebuilt on
+ * every toLocalDay() call — measurable on the dashboard, where the evening
+ * digest resolves a local day for every completed task on each render.
+ * Time zones are a tiny closed set per session, so cache by zone.
+ */
+const wallClockFormatters = new Map<string, Intl.DateTimeFormat>();
+function wallClockFormatter(timeZone: string): Intl.DateTimeFormat {
+  let fmt = wallClockFormatters.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      hourCycle: "h23",
+    });
+    wallClockFormatters.set(timeZone, fmt);
+  }
+  return fmt;
+}
+
 function wallClock(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
+  const parts = wallClockFormatter(timeZone).formatToParts(date);
   const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
   return { y: get("year"), m: get("month"), d: get("day"), h: get("hour") };
 }

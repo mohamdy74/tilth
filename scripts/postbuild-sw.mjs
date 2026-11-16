@@ -1,17 +1,42 @@
-// vite-plugin-pwa writes sw.js during the vite build, before nitro has
-// assembled .output/public, so its precache list misses the client assets
-// (assets/*.js|css|woff2) and offline would break. This script regenerates
-// the service worker against the FINAL .output/public with workbox-build.
+// vite-plugin-pwa writes sw.js during the vite build, before the final client
+// output is assembled, so its precache list misses client assets and offline
+// would break. This script regenerates the worker beside the prerendered shell.
 // Keep the workbox options in sync with vite.config.ts.
 
 import { generateSW } from "workbox-build";
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const outDir = join(process.cwd(), ".output", "public");
-if (!existsSync(join(outDir, "_shell.html"))) {
-  console.error("postbuild-sw: .output/public/_shell.html missing — must run after vite build");
+function findShellDirs(root, matches = []) {
+  if (existsSync(join(root, "_shell.html"))) matches.push(root);
+
+  let entries;
+  try {
+    entries = readdirSync(root, { withFileTypes: true });
+  } catch {
+    return matches;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    findShellDirs(join(root, entry.name), matches);
+  }
+
+  return matches;
+}
+
+const cwd = process.cwd();
+const outDir = [join(cwd, ".output"), join(cwd, "dist")]
+  .flatMap((root) => findShellDirs(root))
+  .sort(
+    (a, b) => statSync(join(b, "_shell.html")).mtimeMs - statSync(join(a, "_shell.html")).mtimeMs,
+  )[0];
+
+if (!outDir) {
+  console.error(
+    "postbuild-sw: could not find _shell.html under .output/ or dist/ — must run after vite build",
+  );
   process.exit(1);
 }
 
@@ -50,4 +75,4 @@ for (const needle of ["_shell.html", "assets/", "SKIP_WAITING", "precache"]) {
 for (const f of readdirSync(outDir)) {
   if (f.startsWith("workbox-")) rmSync(join(outDir, f));
 }
-console.log("postbuild-sw: regenerated .output/public/sw.js against the final build output");
+console.log(`postbuild-sw: regenerated ${join(outDir, "sw.js")} against the final build output`);
