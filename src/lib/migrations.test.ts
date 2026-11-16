@@ -86,6 +86,27 @@ describe("migrations", () => {
     expect(data["shopItems"]).toEqual([]);
     expect(data["purchases"]).toEqual([]);
     expect(data["notes"]).toEqual([]);
-    expect(data.meta?.schemaVersion).toBe(4);
+    expect(data.meta?.schemaVersion).toBe(5);
+  });
+
+  it("real v4 -> v5 adds the savedViews collection", () => {
+    const { data, from, to } = runMigrations(
+      { meta: { schemaVersion: 4 }, tasks: [] },
+      migrations,
+      5,
+    );
+    expect(from).toBe(4);
+    expect(to).toBe(5);
+    expect(data["savedViews"]).toEqual([]);
+    expect(data.meta?.schemaVersion).toBe(5);
+  });
+
+  it("real v4 -> v5 keeps existing saved views", () => {
+    const { data } = runMigrations({
+      meta: { schemaVersion: 4 },
+      tasks: [],
+      savedViews: [{ id: "v1", name: "Work" }],
+    });
+    expect(data["savedViews"]).toEqual([{ id: "v1", name: "Work" }]);
   });
 });

@@ -45,6 +45,7 @@ const snapshot = (n = 1): Snapshot =>
       updatedAt: stamp,
     },
     meta: { schemaVersion: CURRENT_SCHEMA_VERSION, createdAt: stamp, updatedAt: stamp },
+    savedViews: [],
   }) as unknown as Snapshot;
 
 const emptySnap = (): Snapshot => ({ ...snapshot(0), notes: [], habitLogs: [], xpLedger: [] });

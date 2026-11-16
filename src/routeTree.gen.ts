@@ -15,9 +15,11 @@ import { Route as FocusRouteImport } from './routes/focus'
 import { Route as HabitsRouteImport } from './routes/habits'
 import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as NotesRouteImport } from './routes/notes'
+import { Route as PlanRouteImport } from './routes/plan'
 import { Route as RewardsRouteImport } from './routes/rewards'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TasksRouteImport } from './routes/tasks'
+import { Route as ApiSyncRouteImport } from './routes/api/sync'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -49,6 +51,11 @@ const NotesRoute = NotesRouteImport.update({
   path: '/notes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlanRoute = PlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RewardsRoute = RewardsRouteImport.update({
   id: '/rewards',
   path: '/rewards',
@@ -64,6 +71,11 @@ const TasksRoute = TasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSyncRoute = ApiSyncRouteImport.update({
+  id: '/api/sync',
+  path: '/api/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -72,9 +84,11 @@ export interface FileRoutesByFullPath {
   '/habits': typeof HabitsRoute
   '/insights': typeof InsightsRoute
   '/notes': typeof NotesRoute
+  '/plan': typeof PlanRoute
   '/rewards': typeof RewardsRoute
   '/settings': typeof SettingsRoute
   '/tasks': typeof TasksRoute
+  '/api/sync': typeof ApiSyncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -83,9 +97,11 @@ export interface FileRoutesByTo {
   '/habits': typeof HabitsRoute
   '/insights': typeof InsightsRoute
   '/notes': typeof NotesRoute
+  '/plan': typeof PlanRoute
   '/rewards': typeof RewardsRoute
   '/settings': typeof SettingsRoute
   '/tasks': typeof TasksRoute
+  '/api/sync': typeof ApiSyncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -95,9 +111,11 @@ export interface FileRoutesById {
   '/habits': typeof HabitsRoute
   '/insights': typeof InsightsRoute
   '/notes': typeof NotesRoute
+  '/plan': typeof PlanRoute
   '/rewards': typeof RewardsRoute
   '/settings': typeof SettingsRoute
   '/tasks': typeof TasksRoute
+  '/api/sync': typeof ApiSyncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -108,9 +126,11 @@ export interface FileRouteTypes {
     | '/habits'
     | '/insights'
     | '/notes'
+    | '/plan'
     | '/rewards'
     | '/settings'
     | '/tasks'
+    | '/api/sync'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -119,9 +139,11 @@ export interface FileRouteTypes {
     | '/habits'
     | '/insights'
     | '/notes'
+    | '/plan'
     | '/rewards'
     | '/settings'
     | '/tasks'
+    | '/api/sync'
   id:
     | '__root__'
     | '/'
@@ -130,9 +152,11 @@ export interface FileRouteTypes {
     | '/habits'
     | '/insights'
     | '/notes'
+    | '/plan'
     | '/rewards'
     | '/settings'
     | '/tasks'
+    | '/api/sync'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -142,9 +166,11 @@ export interface RootRouteChildren {
   HabitsRoute: typeof HabitsRoute
   InsightsRoute: typeof InsightsRoute
   NotesRoute: typeof NotesRoute
+  PlanRoute: typeof PlanRoute
   RewardsRoute: typeof RewardsRoute
   SettingsRoute: typeof SettingsRoute
   TasksRoute: typeof TasksRoute
+  ApiSyncRoute: typeof ApiSyncRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -191,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/plan': {
+      id: '/plan'
+      path: '/plan'
+      fullPath: '/plan'
+      preLoaderRoute: typeof PlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/rewards': {
       id: '/rewards'
       path: '/rewards'
@@ -212,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TasksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/sync': {
+      id: '/api/sync'
+      path: '/api/sync'
+      fullPath: '/api/sync'
+      preLoaderRoute: typeof ApiSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -222,9 +262,11 @@ const rootRouteChildren: RootRouteChildren = {
   HabitsRoute: HabitsRoute,
   InsightsRoute: InsightsRoute,
   NotesRoute: NotesRoute,
+  PlanRoute: PlanRoute,
   RewardsRoute: RewardsRoute,
   SettingsRoute: SettingsRoute,
   TasksRoute: TasksRoute,
+  ApiSyncRoute: ApiSyncRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

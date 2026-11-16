@@ -20,12 +20,14 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { usePrefs } from "./preferences";
-import { useStore } from "@/lib/store";
+import { useStore, tasks as tasksApi, notes as notesApi, todayLocal } from "@/lib/store";
 import { totalsFromLedger } from "@/lib/rewards";
 import { resolveAccent } from "@/lib/themes";
 import { isActive } from "@/lib/focusTime";
 import { applyUpdate, registerPwa } from "@/lib/pwa";
 import { toLocalDay } from "@/lib/dates";
+import { searchAll } from "@/lib/search";
+import { captureFromText } from "@/lib/capture";
 import { eveningDigest, morningDigest } from "@/lib/digest";
 
 type Cmd = {
@@ -42,12 +44,12 @@ type Cmd = {
 // four daily-action surfaces plus a "More" sheet holding the rest — so Rewards
 // and every other route stays reachable on phones.
 const NAV_GROUPS: { label: "plan" | "do" | "keep" | "grow"; keys: NavKey[] }[] = [
-  { label: "plan", keys: ["dashboard", "calendar"] },
+  { label: "plan", keys: ["dashboard", "plan", "calendar"] },
   { label: "do", keys: ["tasks", "habits", "focus"] },
   { label: "keep", keys: ["notes"] },
   { label: "grow", keys: ["rewards", "insights"] },
 ];
-const MOBILE_PRIMARY: NavKey[] = ["dashboard", "tasks", "focus", "habits"];
+const MOBILE_PRIMARY: NavKey[] = ["dashboard", "plan", "tasks", "focus", "habits"];
 const MOBILE_MORE: NavKey[] = ["calendar", "notes", "rewards", "insights", "settings"];
 const navOf = (key: NavKey) => NAV.find((n) => n.key === key)!;
 
@@ -273,7 +275,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-sidebar/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-6">
           {MOBILE_PRIMARY.map((key) => {
             const { to, icon: Icon } = navOf(key);
             return (
@@ -384,8 +386,6 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   const [idx, setIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const prevFocus = useRef<Element | null>(null);
-  const storeTasks = useStore((s) => s.tasks);
-  const storeNotes = useStore((s) => s.notes);
 
   const items = useMemo<Cmd[]>(() => {
     const nq = q.trim().toLowerCase();
@@ -463,65 +463,68 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     return cmds.filter((c) => c.label.toLowerCase().includes(nq));
   }, [q, t, onClose, navigate, locale, setLocale, theme, setTheme]);
 
-  // TIL-F07: the palette searches live content, not just actions — task
-  // titles/notes/tags and note titles/bodies. The store is fully resident in
-  // memory, so filtering is free; actions stay first, content rides beneath.
+  // TIL-F07: the palette searches live content (ranked, Arabic-aware, across
+  // tasks, notes and habits) and offers smart capture of free text.
   const content = useMemo<Cmd[]>(() => {
-    const nq = q.trim().toLowerCase();
+    const nq = q.trim();
     if (nq.length < 2) return [];
-    const out: Cmd[] = [];
-    for (const task of storeTasks) {
-      if (out.length >= 8) break;
-      if (task.deletedAt) continue;
-      const hay = (
-        task.title +
-        "\n" +
-        (task.notes ?? "") +
-        "\n" +
-        task.tags.join(" ")
-      ).toLowerCase();
-      if (!hay.includes(nq)) continue;
-      out.push({
-        key: "task:" + task.id,
-        label: task.title,
-        detail: t.nav.tasks,
-        icon: ListTodo,
-        run: () => {
-          try {
-            window.sessionStorage.setItem("tilth.open-task", task.id);
-          } catch {
-            /* ignore */
-          }
-          onClose();
-          navigate({ to: "/tasks" });
-        },
-      });
-    }
-    for (const note of storeNotes) {
-      if (out.length >= 12) break;
-      if (note.deletedAt) continue;
-      const hay = (note.title + "\n" + (note.body ?? "")).toLowerCase();
-      if (!hay.includes(nq)) continue;
-      out.push({
-        key: "note:" + note.id,
-        label: note.title,
-        detail: t.nav.notes,
-        icon: StickyNote,
-        run: () => {
-          try {
-            window.sessionStorage.setItem("tilth.open-note", note.id);
-          } catch {
-            /* ignore */
-          }
-          onClose();
-          navigate({ to: "/notes" });
-        },
-      });
-    }
-    return out;
-  }, [q, storeTasks, storeNotes, t, onClose, navigate]);
+    const store = useStore.getState();
+    const hits = searchAll({ tasks: store.tasks, notes: store.notes, habits: store.habits }, nq, {
+      perKind: 6,
+      limit: 14,
+    });
+    return hits.map((hit) => ({
+      key: `${hit.kind}:${hit.id}`,
+      label: hit.title,
+      detail: hit.snippet || t.nav[hit.kind as keyof typeof t.nav],
+      icon: hit.kind === "task" ? ListTodo : hit.kind === "note" ? StickyNote : Repeat,
+      run: () => {
+        try {
+          window.sessionStorage.setItem("tilth.open-" + hit.kind, hit.id);
+        } catch {
+          /* ignore */
+        }
+        onClose();
+        navigate({ to: hit.kind === "task" ? "/tasks" : hit.kind === "note" ? "/notes" : "/habits" });
+      },
+    }));
+  }, [q, t, onClose, navigate]);
 
-  const flat = useMemo(() => [...items, ...content], [items, content]);
+  const capture = useMemo<Cmd[]>(() => {
+    const nq = q.trim();
+    if (nq.length < 2) return [];
+    const result = captureFromText(nq, todayLocal());
+    if (!result.title) return [];
+    const isTask = result.kind === "task";
+    return [
+      {
+        key: "capture",
+        label: isTask ? t.command.captureTask.replace("{text}", result.title) : t.command.captureNote.replace("{text}", result.title),
+        icon: isTask ? ListTodo : StickyNote,
+        detail: isTask ? t.command.captureHeading : "",
+        run: () => {
+          try {
+            onClose();
+            if (isTask) {
+              const taskInput: Parameters<typeof tasksApi.add>[0] = { title: result.title };
+              if (result.tags.length) taskInput.tags = result.tags;
+              if (result.priority) taskInput.priority = result.priority;
+              if (result.dueDate) taskInput.dueDate = result.dueDate;
+              tasksApi.add(taskInput);
+              navigate({ to: "/tasks" });
+            } else {
+              notesApi.add({ title: result.title, body: result.body });
+              navigate({ to: "/notes" });
+            }
+          } catch {
+            /* ignore */
+          }
+        },
+      },
+    ];
+  }, [q, t, onClose, navigate, tasksApi, notesApi]);
+
+  const flat = useMemo(() => [...capture, ...items, ...content], [capture, items, content]);
 
   useEffect(() => {
     prevFocus.current = document.activeElement;

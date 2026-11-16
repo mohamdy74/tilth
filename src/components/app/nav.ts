@@ -4,6 +4,7 @@ import {
   CheckSquare,
   Gift,
   LayoutDashboard,
+  Layout,
   Repeat,
   Settings,
   StickyNote,
@@ -13,6 +14,7 @@ import {
 
 export type NavKey =
   | "dashboard"
+  | "plan"
   | "calendar"
   | "tasks"
   | "notes"
@@ -25,6 +27,7 @@ export type NavItem = {
   key: NavKey;
   to:
     | "/"
+    | "/plan"
     | "/calendar"
     | "/tasks"
     | "/notes"
@@ -38,6 +41,7 @@ export type NavItem = {
 
 export const NAV: NavItem[] = [
   { key: "dashboard", to: "/", icon: LayoutDashboard },
+  { key: "plan", to: "/plan", icon: Layout },
   { key: "calendar", to: "/calendar", icon: CalendarDays },
   { key: "tasks", to: "/tasks", icon: CheckSquare },
   { key: "notes", to: "/notes", icon: StickyNote },

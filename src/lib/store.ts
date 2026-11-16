@@ -30,9 +30,14 @@ import {
   type ShopItem,
   type Snapshot,
   type StorageKey,
+  type SyncConflictEntry,
+  type SyncSettings,
   type Task,
   type XpLedgerEntry,
 } from "./types";
+import { fromSyncPayload, mergeSync, syncedCollectionsOf, toSyncPayload } from "./sync";
+import { decryptPayload, encryptPayload } from "./syncCrypto";
+import { tilthTransport } from "./syncTransport";
 
 const nowIso = () => new Date().toISOString();
 const uid = () => crypto.randomUUID();
@@ -70,6 +75,7 @@ function emptySnapshot(): Snapshot {
     achievements: [],
     shopItems: [],
     purchases: [],
+    savedViews: [],
     settings: defaultSettings(),
     meta: { schemaVersion: CURRENT_SCHEMA_VERSION, createdAt: t, updatedAt: t },
   };
@@ -336,7 +342,7 @@ export function progressState(s = useStore.getState()): AchievementState {
  * The ONE bonus checkpoint: evaluates achievements over already-validated
  * data, stores new unlocks once, and grants completed-challenge coin
  * bonuses (coins-only ledger entries, never XP). Called after every reward
- * event, after an export stamp and once at the end of boot — never from
+ * event, after an export stamp and once at the end of boot â€” never from
  * components.
  */
 function applyBonusChecks() {
@@ -475,7 +481,7 @@ export const habits = {
   },
 };
 
-/** Notes are plain records — no reward events; they sit outside the XP economy. */
+/** Notes are plain records â€” no reward events; they sit outside the XP economy. */
 export const notes = {
   add(input: {
     title: string;
@@ -673,6 +679,137 @@ export const metaActions = {
   },
 };
 
+/* ---------------- remote sync ---------------- */
+
+/**
+ * Remote sync wired into the store. Local stays the source of truth: pull
+ * merges the remote replica on top (never overwrites newer local data),
+ * push encrypts and uploads the synced collections, and resolve lets the
+ * user pick a winner for each conflict. `settings.sync` (endpoint, token,
+ * passphrase, deviceId) never leaves the device — it is not synced.
+ */
+export const sync = {
+  /** Ensures this device has a stable id, persisted with settings. */
+  ensureDeviceId() {
+    const s = useStore.getState();
+    const st = s.settings.sync;
+    if (st?.deviceId) return st.deviceId;
+    const id = crypto.randomUUID();
+    settings.update({ sync: { ...(st ?? defaultSync()), deviceId: id } });
+    return id;
+  },
+
+  pull: async (): Promise<{
+    ok: boolean;
+    error?: string;
+    pulled?: number;
+    conflicts?: number;
+  }> => {
+    const s = useStore.getState();
+    const st = s.settings.sync;
+    if (!st?.enabled || !st.passphrase || !st.endpoint) {
+      return { ok: false, error: "sync is not configured" };
+    }
+    try {
+      const deviceId = sync.ensureDeviceId();
+      const transport = tilthTransport({ baseUrl: st.endpoint, token: st.token });
+      const blob = await transport.pull();
+      if (!blob) return { ok: true, pulled: 0 };
+      const plaintext = await decryptPayload(st.passphrase, blob);
+      const payload = fromSyncPayload(JSON.parse(plaintext));
+      if (!payload) return { ok: false, error: "remote payload is malformed" };
+      const at = new Date().toISOString();
+      const local = syncedCollectionsOf(s as unknown as Snapshot);
+      const { merged, conflicts } = mergeSync(local, payload.collections, at);
+      for (const [k, records] of Object.entries(merged)) {
+        setCollection(k as CollectionKey, () =>
+          records as unknown as Snapshot[CollectionKey],
+        );
+      }
+      useStore.setState({
+        settings: {
+          ...s.settings,
+          sync: { ...st, deviceId, lastSyncedAt: at, conflicts },
+          updatedAt: at,
+        },
+      });
+      schedule("settings");
+      return {
+        ok: true,
+        pulled: Object.values(merged).reduce((a, b) => a + b.length, 0),
+        conflicts: conflicts.length,
+      };
+    } catch (e) {
+      return { ok: false, error: String(e) };
+    }
+  },
+
+  push: async (): Promise<{ ok: boolean; error?: string }> => {
+    const s = useStore.getState();
+    const st = s.settings.sync;
+    if (!st?.enabled || !st.passphrase || !st.endpoint) {
+      return { ok: false, error: "sync is not configured" };
+    }
+    try {
+      const deviceId = sync.ensureDeviceId();
+      const transport = tilthTransport({ baseUrl: st.endpoint, token: st.token });
+      const at = new Date().toISOString();
+      const payload = toSyncPayload({
+        collections: syncedCollectionsOf(s as unknown as Snapshot),
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        deviceId,
+        at,
+      });
+      const plaintext = JSON.stringify(payload);
+      const blob = await encryptPayload(st.passphrase, plaintext);
+      await transport.push(blob);
+      useStore.setState({
+        settings: { ...s.settings, sync: { ...st, deviceId, lastSyncedAt: at }, updatedAt: at },
+      });
+      schedule("settings");
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: String(e) };
+    }
+  },
+
+  /** User picks a winner for a conflict and merges it back into the store. */
+  resolve(conflictId: string, winner: "local" | "remote") {
+    const s = useStore.getState();
+    const st = s.settings.sync;
+    const conflicts = st?.conflicts ?? [];
+    const conflict = conflicts.find((c) => c.id === conflictId);
+    if (!conflict) return;
+    const chosen = winner === "local" ? conflict.local : conflict.remote;
+    const [collection, recordId] = conflictId.split(":");
+    const key = collection as CollectionKey;
+    setCollection(key, (list) =>
+      list.map((r) =>
+        r.id === recordId
+          ? ({ ...(chosen as Snapshot[CollectionKey][number]), updatedAt: nowIso() } as Snapshot[CollectionKey][number])
+          : r,
+      ) as unknown as Snapshot[CollectionKey],
+    );
+    const next = conflicts.filter((c) => c.id !== conflictId);
+    useStore.setState({
+      settings: {
+        ...s.settings,
+        sync: st ? { ...st, conflicts: next } : undefined,
+        updatedAt: nowIso(),
+      },
+    });
+    schedule("settings");
+  },
+};
+
+function defaultSync(): SyncSettings {
+  return {
+    enabled: false,
+    endpoint: "",
+    deviceId: crypto.randomUUID(),
+  };
+}
+
 /* ---------------- import / export / reset ---------------- */
 
 export function exportSnapshot(): Snapshot {
@@ -747,11 +884,11 @@ export function seedSampleData() {
   focus.end(s.id, true); // XP is awarded automatically through applyRewardEvent
   notes.add({
     title: "Welcome to notes",
-    body: "Markdown works here — # headings, **bold**, lists, [links](https://example.com).\nEdit or delete this note anytime.",
+    body: "Markdown works here â€” # headings, **bold**, lists, [links](https://example.com).\nEdit or delete this note anytime.",
   });
   notes.add({
-    title: "خطة الأسبوع",
-    body: "- خلّص المهام المعلّقة\n- جلسة تركيز واحدة على الأقل",
+    title: "Ø®Ø·Ø© Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹",
+    body: "- Ø®Ù„Ù‘Øµ Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„Ù…Ø¹Ù„Ù‘Ù‚Ø©\n- Ø¬Ù„Ø³Ø© ØªØ±ÙƒÙŠØ² ÙˆØ§Ø­Ø¯Ø© Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„",
     pinned: true,
   });
 
@@ -792,7 +929,7 @@ export function seedSampleData() {
   };
   for (let i = 21; i >= 2; i--) {
     const day = plus(-i);
-    mkDone("Morning routine", day, 8); // 10:00 Cairo — most completions before noon
+    mkDone("Morning routine", day, 8); // 10:00 Cairo â€” most completions before noon
     if (i % 2 === 0) mkDone("Afternoon block", day, 13); // 15:00 Cairo
     habits.log(h1.id, "done", day);
     if (i % 2 === 0) mkFocus(day, 9, 25);

@@ -1,5 +1,5 @@
 /** Schema entity types. Bump CURRENT_SCHEMA_VERSION + add a migration when changing. */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 export type ISODate = string; // full ISO timestamp
 export type LocalDay = string; // 'YYYY-MM-DD', stored at creation, never recomputed
@@ -87,7 +87,7 @@ export interface AchievementUnlock extends BaseRecord {
   localDay: LocalDay;
 }
 
-/** Unlockable accent themes — hue sets live in src/styles.css, unlock rules in rewardsConfig. */
+/** Unlockable accent themes â€” hue sets live in src/styles.css, unlock rules in rewardsConfig. */
 export const ACCENT_IDS = ["moss", "sage", "pine", "clay", "dusk"] as const;
 export type AccentId = (typeof ACCENT_IDS)[number];
 
@@ -95,7 +95,7 @@ export type AccentId = (typeof ACCENT_IDS)[number];
 export interface ShopItem extends BaseRecord {
   name: string;
   note?: string | undefined;
-  /** Coin price — a positive integer. */
+  /** Coin price â€” a positive integer. */
   price: number;
 }
 
@@ -115,7 +115,7 @@ export interface Purchase extends BaseRecord {
   usedAt?: ISODate | undefined;
 }
 
-/** A free-form Markdown note — thoughts, plans and links. Notes sit outside the XP economy. */
+/** A free-form Markdown note â€” thoughts, plans and links. Notes sit outside the XP economy. */
 export interface Note extends BaseRecord {
   title: string;
   body: string;
@@ -127,8 +127,61 @@ export interface Note extends BaseRecord {
 export type DashboardCard =
   "priorities" | "progress" | "deadlines" | "habits" | "focus" | "level" | "achievements";
 
+/** The task-list buckets a view can be built on. */
+export type TaskBucket = "today" | "upcoming" | "overdue" | "completed" | "inbox";
+
+/** The filter state of the task list, captured by a saved view. */
+export interface TaskViewFilter {
+  bucket: TaskBucket;
+  priority: Priority | "all";
+  tag: string | "all";
+  search: string;
+}
+
+/** A saved task-list view â€” a named set of filters the user can return to. */
+export interface SavedView extends BaseRecord {
+  name: string;
+  filters: TaskViewFilter;
+}
+
 /**
- * Quiet daily digest preferences. Off by default — silence is the default;
+ * A record conflict detected during a sync. Both versions are kept until the
+ * user picks one, so nothing is ever lost silently.
+ */
+export interface SyncConflictEntry {
+  id: string;
+  collection: string;
+  recordId: string;
+  reason: "delete-vs-edit" | "same-timestamp";
+  local: unknown;
+  remote: unknown;
+  winner: "local" | "remote";
+  at: string;
+}
+
+/**
+ * Remote-sync configuration. This lives in `settings`, which stays on the
+ * device and is never pushed to the remote â€” so the passphrase never leaves
+ * the browser.
+ */
+export interface SyncSettings {
+  enabled: boolean;
+  /** The remote endpoint URL (Tilth's own route, or a user-supplied endpoint). */
+  endpoint: string;
+  /** Optional bearer token for the remote. */
+  token?: string | undefined;
+  /** Passphrase the encryption key is derived from. Device-local. */
+  passphrase?: string | undefined;
+  /** A stable id for this device, so the remote can label it. */
+  deviceId: string;
+  /** ISO timestamp of the last successful sync. */
+  lastSyncedAt?: string | undefined;
+  /** Conflicts waiting for the user to choose a version. */
+  conflicts?: SyncConflictEntry[] | undefined;
+}
+
+/**
+ * Quiet daily digest preferences. Off by default â€” silence is the default;
  * only the user opts in. Additive optional field: no schemaVersion bump.
  */
 export interface DigestPrefs {
@@ -147,6 +200,8 @@ export interface Settings {
   dashboardCards: Record<DashboardCard, boolean>;
   dailyFocusTargetMinutes: number;
   digest?: DigestPrefs | undefined;
+  /** Remote-sync configuration. Additive optional field: absent means sync is off. */
+  sync?: SyncSettings | undefined;
   updatedAt: ISODate;
 }
 
@@ -168,6 +223,7 @@ export interface Collections {
   achievements: AchievementUnlock[];
   shopItems: ShopItem[];
   purchases: Purchase[];
+  savedViews: SavedView[];
 }
 export type CollectionKey = keyof Collections;
 export const COLLECTION_KEYS: CollectionKey[] = [
@@ -180,6 +236,7 @@ export const COLLECTION_KEYS: CollectionKey[] = [
   "achievements",
   "shopItems",
   "purchases",
+  "savedViews",
 ];
 
 /** Full snapshot = every storage key. Used for load, export, import and migrations. */

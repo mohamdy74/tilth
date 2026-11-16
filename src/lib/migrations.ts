@@ -38,6 +38,8 @@ export const migrations: Migration[] = [
   },
   // v3 -> v4: add the notes collection.
   (d) => ({ ...d, notes: Array.isArray(d["notes"]) ? d["notes"] : [] }),
+  // v4 -> v5: add the savedViews collection (named task-list views).
+  (d) => ({ ...d, savedViews: Array.isArray(d["savedViews"]) ? d["savedViews"] : [] }),
 ];
 
 export function runMigrations(

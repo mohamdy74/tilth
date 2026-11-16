@@ -1,14 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  ArrowRightCircle,
   BellRing,
   Check,
   Database,
   Download,
   FileWarning,
   Keyboard,
+  Lock,
   Monitor,
   Moon,
+  RefreshCw,
+  Save,
+  ShieldAlert,
   Smartphone,
   Sprout,
   Sun,
@@ -30,9 +35,10 @@ import {
   resetAll,
   seedSampleData,
   settings as settingsApi,
+  sync,
   useStore,
 } from "@/lib/store";
-import { COLLECTION_KEYS, type DashboardCard } from "@/lib/types";
+import { COLLECTION_KEYS, type DashboardCard, type SyncSettings } from "@/lib/types";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -86,6 +92,7 @@ function SettingsPage() {
     ["settings-app", t.pwa.sectionTitle],
     ["settings-notifications", t.notif.title],
     ["settings-shortcuts", t.settings.shortcutsTitle],
+    ["settings-sync", t.sync.title],
     ["settings-data", t.data.title],
   ];
 
@@ -112,6 +119,7 @@ function SettingsPage() {
         <DashboardCardsSection />
         <AppSection />
         <NotificationsSection />
+        <SyncSection />
         <ShortcutsSection />
       </div>
 
@@ -422,6 +430,150 @@ function NotificationsSection() {
       </div>
     </fieldset>
   );
+}
+
+/** Remote sync configuration — the passphrase never leaves this device. */
+function SyncSection() {
+  const { t, locale } = usePrefs();
+  const ready = useStore((s) => s.ready);
+  const settings = useStore((s) => s.settings);
+  const st = settings.sync;
+  const enabled = st?.enabled ?? false;
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "ok" | "error">("idle");
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+
+  if (!ready) return <SkeletonPanel />;
+
+  const commit = async () => {
+    setSyncStatus("syncing");
+    setStatusMsg(null);
+    // Push this device first, then pull the merged replica.
+    const pushed = await sync.push();
+    if (!pushed.ok) {
+      setSyncStatus("error");
+      setStatusMsg(t.sync.error.replace("{message}", pushed.error ?? ""));
+      return;
+    }
+    const pulled = await sync.pull();
+    if (!pulled.ok) {
+      setSyncStatus("error");
+      setStatusMsg(t.sync.error.replace("{message}", pulled.error ?? ""));
+      return;
+    }
+    setSyncStatus("ok");
+    setStatusMsg(pulled.conflicts && pulled.conflicts > 0 ? t.sync.conflictsHint : t.sync.upToDate);
+  };
+
+  const conflicts = st?.conflicts ?? [];
+
+  return (
+    <fieldset id="settings-sync" className="panel scroll-mt-6">
+      <legend className="panel-title">{t.sync.title}</legend>
+      <p className="text-xs text-muted-foreground">{t.sync.body}</p>
+      <div className="mt-3 flex items-center justify-between gap-4">
+        <span className="text-sm">{enabled ? t.sync.on : t.sync.off}</span>
+        <Switch
+          checked={enabled}
+          onChange={(v) =>
+            settingsApi.update({ sync: { ...(st ?? defaultSyncInSettings()), enabled: v } })
+          }
+          label={t.sync.enable}
+        />
+      </div>
+
+      {enabled && (
+        <>
+          <div className="mt-4 space-y-2">
+            <label className="block text-xs font-medium text-foreground">{t.sync.endpoint}</label>
+            <input
+              value={st?.endpoint ?? ""}
+              onChange={(e) =>
+                settingsApi.update({ sync: { ...st!, endpoint: e.target.value } })
+              }
+              placeholder="https://sync.example.com/api/sync"
+              className="input"
+            />
+            <p className="text-xs text-muted-foreground">{t.sync.endpointHint}</p>
+          </div>
+          <div className="mt-4 space-y-2">
+            <label className="block text-xs font-medium text-foreground">{t.sync.passphrase}</label>
+            <input
+              type="password"
+              value={st?.passphrase ?? ""}
+              onChange={(e) =>
+                settingsApi.update({ sync: { ...st!, passphrase: e.target.value } })
+              }
+              placeholder="••••••••"
+              className="input"
+            />
+            <p className="text-xs text-muted-foreground">{t.sync.passphraseHint}</p>
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              type="button"
+              disabled={syncStatus === "syncing"}
+              onClick={commit}
+              className={PRIMARY_BTN + " px-4 py-2 text-sm"}
+            >
+              <RefreshCw className="size-4 shrink-0" aria-hidden />
+              {syncStatus === "syncing" ? t.sync.syncing : t.sync.syncNow}
+            </button>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {t.sync.lastSync}:{' '}
+              {st?.lastSyncedAt ? formatDate(locale, new Date(st.lastSyncedAt)) : t.sync.never}
+            </span>
+          </div>
+          {statusMsg && (
+            <p className="mt-2 text-sm">
+              {syncStatus === "error" ? (
+                <span className="text-destructive">{statusMsg}</span>
+              ) : syncStatus === "ok" ? (
+                <span className="text-primary">{statusMsg}</span>
+              ) : (
+                statusMsg
+              )}
+            </p>
+          )}
+          {conflicts.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground">{t.sync.conflicts}</p>
+              <p className="text-xs text-muted-foreground">{t.sync.conflictsHint}</p>
+              {conflicts.map((c) => (
+                <div
+                  key={c.id}
+                  className="rounded-lg border border-border bg-card p-3 text-sm"
+                >
+                  <div className="mb-1 truncate text-muted-foreground">
+                    {c.collection}:{c.recordId} ({c.reason})
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => sync.resolve(c.id, "local")}
+                      className="flex-1 py-1.5 px-2 text-xs border border-border rounded hover:bg-accent/40"
+                    >
+                      {t.sync.keepLocal}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sync.resolve(c.id, "remote")}
+                      className="flex-1 py-1.5 px-2 text-xs border border-border rounded hover:bg-accent/40"
+                    >
+                      {t.sync.keepRemote}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </fieldset>
+  );
+}
+
+function defaultSyncInSettings(): SyncSettings {
+  return { enabled: false, endpoint: "", deviceId: crypto.randomUUID() };
 }
 
 /** The keyboard shortcuts that exist, documented where they live. */
