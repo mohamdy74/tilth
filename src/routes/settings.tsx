@@ -447,17 +447,18 @@ function SyncSection() {
   const commit = async () => {
     setSyncStatus("syncing");
     setStatusMsg(null);
-    // Push this device first, then pull the merged replica.
-    const pushed = await sync.push();
-    if (!pushed.ok) {
-      setSyncStatus("error");
-      setStatusMsg(t.sync.error.replace("{message}", pushed.error ?? ""));
-      return;
-    }
+    // Pull first: merge the remote replica into local data, then push the
+    // merged result. Pushing first would overwrite remote-only records.
     const pulled = await sync.pull();
     if (!pulled.ok) {
       setSyncStatus("error");
       setStatusMsg(t.sync.error.replace("{message}", pulled.error ?? ""));
+      return;
+    }
+    const pushed = await sync.push();
+    if (!pushed.ok) {
+      setSyncStatus("error");
+      setStatusMsg(t.sync.error.replace("{message}", pushed.error ?? ""));
       return;
     }
     setSyncStatus("ok");
@@ -490,7 +491,7 @@ function SyncSection() {
               onChange={(e) =>
                 settingsApi.update({ sync: { ...st!, endpoint: e.target.value } })
               }
-              placeholder="https://sync.example.com/api/sync"
+              placeholder="https://my-server.example/api/sync"
               className="input"
             />
             <p className="text-xs text-muted-foreground">{t.sync.endpointHint}</p>

@@ -50,6 +50,21 @@ async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKe
   );
 }
 
+/**
+ * Stable scope for the remote blob: the same passphrase reaches the same blob
+ * on every device. Not a secret itself (the content is encrypted), but it is
+ * derived, not the raw passphrase, so the remote never sees the passphrase.
+ */
+export async function syncKey(passphrase: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(passphrase),
+  );
+  return Array.from(new Uint8Array(digest).slice(0, 8))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export async function encryptPayload(
   passphrase: string,
   plaintext: string,

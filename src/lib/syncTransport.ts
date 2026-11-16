@@ -78,13 +78,13 @@ export function httpTransport(opts: {
   };
 }
 
-/** Tilth's own sync route on the app's server: POST/PUT stores, GET reads. */
+/** Tilth's own sync route on the app's server: POST stores, GET reads. */
 export function tilthTransport(opts: {
-  baseUrl?: string | undefined;
   token?: string | undefined;
+  /** Blob scope derived from the passphrase (see syncKey). */
+  key: string;
 }): SyncTransport {
-  const base = opts.baseUrl ?? "";
-  const url = `${base}/api/sync`;
+  const url = `/api/sync?key=${encodeURIComponent(opts.key)}`;
   const headers = (): Record<string, string> => ({
     "content-type": "application/json",
     ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),

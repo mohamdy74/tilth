@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { decryptPayload, encryptPayload, isEncryptedBlob } from "./syncCrypto";
+import { decryptPayload, encryptPayload, isEncryptedBlob, syncKey } from "./syncCrypto";
 
 const PASSPHRASE = "correct horse battery staple";
 const OTHER = "another correct passphrase";
 
 describe("syncCrypto", () => {
+  it("syncKey is stable per passphrase and never the passphrase itself", async () => {
+    const a = await syncKey(PASSPHRASE);
+    expect(a).toBe(await syncKey(PASSPHRASE));
+    expect(a).not.toBe(await syncKey(OTHER));
+    expect(a).toMatch(/^[0-9a-f]{16}$/);
+    expect(a).not.toContain(PASSPHRASE);
+  });
   it(
     "round trips a payload",
     async () => {

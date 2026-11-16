@@ -492,7 +492,8 @@ const en = {
     body: "Keep an encrypted copy of your data on a remote you control. This device stays the source of truth.",
     enable: "Turn on sync",
     endpoint: "Remote address",
-    endpointHint: "Tilth's own sync server, or any endpoint that accepts the encrypted blob.",
+    endpointHint:
+      "Leave empty for Tilth's built-in server, or paste a full blob URL that accepts GET and PUT (WebDAV, S3, another Tilth).",
     passphrase: "Passphrase",
     passphraseHint:
       "Your data is encrypted before it leaves this device. Use the same passphrase on every device.",
@@ -1086,7 +1087,7 @@ const ar: Dict = {
     body: "احتفظ بنسخة مشفّرة من بياناتك على خادم بعيد تتحكم به. هذا الجهاز يبقى المصدر.",
     enable: "فعّل المزامنة",
     endpoint: "عنوان الخادم البعيد",
-    endpointHint: "خادم تيلث نفسه، أو أي نقطة تستقبل النسخة المشفّرة.",
+    endpointHint: "اتركه فارغًا لخادم تيلث المدمج، أو ألصق عنوانًا كاملًا يقبل GET و PUT (WebDAV أو S3 أو تيلث آخر).",
     passphrase: "عبارة المرور",
     passphraseHint: "تُشفَّر بياناتك قبل مغادرة هذا الجهاز. استخدم العبارة نفسها على كل الأجهزة.",
     syncNow: "زامن الآن",

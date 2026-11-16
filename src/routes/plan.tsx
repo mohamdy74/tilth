@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, Clock, Plus, MoreHorizontal, Timer } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { usePrefs } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { toast } from "sonner";
@@ -52,10 +52,6 @@ function PlanPage() {
   const allLogs = useStore((s) => s.habitLogs);
   const today = todayLocal();
 
-  const [view, setView] = useState<"today">("today");
-
-  if (!ready) return null;
-
   const plan = useMemo(
     () =>
       buildDayPlan({
@@ -87,6 +83,16 @@ function PlanPage() {
     if (done) habitApi.unlog(id, today);
     else habitApi.log(id, "done", today);
   }, [allHabits, allLogs, today]);
+
+  // Hooks must run on every render, so the ready gate sits below them.
+  if (!ready) {
+    return (
+      <div aria-busy="true" className="space-y-3">
+        <div className="h-9 w-64 max-w-full animate-pulse rounded bg-accent/30" />
+        <div className="h-[420px] animate-pulse rounded-2xl bg-accent/30" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

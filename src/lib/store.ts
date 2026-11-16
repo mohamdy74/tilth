@@ -36,8 +36,8 @@ import {
   type XpLedgerEntry,
 } from "./types";
 import { fromSyncPayload, mergeSync, syncedCollectionsOf, toSyncPayload } from "./sync";
-import { decryptPayload, encryptPayload } from "./syncCrypto";
-import { tilthTransport } from "./syncTransport";
+import { decryptPayload, encryptPayload, syncKey } from "./syncCrypto";
+import { httpTransport, tilthTransport, type SyncTransport } from "./syncTransport";
 
 const nowIso = () => new Date().toISOString();
 const uid = () => crypto.randomUUID();
@@ -682,6 +682,17 @@ export const metaActions = {
 /* ---------------- remote sync ---------------- */
 
 /**
+ * Empty remote address = Tilth's own /api/sync route, scoped by a key derived
+ * from the passphrase (same passphrase, same blob). A non-empty address is
+ * used verbatim as a generic GET/PUT blob endpoint (WebDAV, S3, another Tilth).
+ */
+async function syncTransportFor(st: SyncSettings): Promise<SyncTransport> {
+  const endpoint = st.endpoint.trim();
+  if (endpoint) return httpTransport({ url: endpoint, token: st.token });
+  return tilthTransport({ token: st.token, key: await syncKey(st.passphrase ?? "") });
+}
+
+/**
  * Remote sync wired into the store. Local stays the source of truth: pull
  * merges the remote replica on top (never overwrites newer local data),
  * push encrypts and uploads the synced collections, and resolve lets the
@@ -707,12 +718,12 @@ export const sync = {
   }> => {
     const s = useStore.getState();
     const st = s.settings.sync;
-    if (!st?.enabled || !st.passphrase || !st.endpoint) {
+    if (!st?.enabled || !st.passphrase) {
       return { ok: false, error: "sync is not configured" };
     }
     try {
       const deviceId = sync.ensureDeviceId();
-      const transport = tilthTransport({ baseUrl: st.endpoint, token: st.token });
+      const transport = await syncTransportFor(st);
       const blob = await transport.pull();
       if (!blob) return { ok: true, pulled: 0 };
       const plaintext = await decryptPayload(st.passphrase, blob);
@@ -747,12 +758,12 @@ export const sync = {
   push: async (): Promise<{ ok: boolean; error?: string }> => {
     const s = useStore.getState();
     const st = s.settings.sync;
-    if (!st?.enabled || !st.passphrase || !st.endpoint) {
+    if (!st?.enabled || !st.passphrase) {
       return { ok: false, error: "sync is not configured" };
     }
     try {
       const deviceId = sync.ensureDeviceId();
-      const transport = tilthTransport({ baseUrl: st.endpoint, token: st.token });
+      const transport = await syncTransportFor(st);
       const at = new Date().toISOString();
       const payload = toSyncPayload({
         collections: syncedCollectionsOf(s as unknown as Snapshot),

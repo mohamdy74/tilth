@@ -86,6 +86,9 @@ describe("engine performance guards", () => {
   });
 
   it("monthWeeks is constant-time (one call, 7-day rows)", () => {
+    // Warm-up: the first call pays JIT/module warm-up (~50ms in CI), which is
+    // start-up cost, not algorithmic cost. The guard is about the second call.
+    monthWeeks(DAY, 6);
     const ms = measure("monthWeeks", 5, () => monthWeeks(DAY, 6));
     expect(ms).toBeLessThan(5);
   });
