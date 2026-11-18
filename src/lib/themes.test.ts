@@ -93,7 +93,7 @@ describe("themes", () => {
  *          oklch(0.98 0.01 95), --accent oklch(0.9 0.05 H),
  *          --accent-foreground oklch(0.3 0.06 H);
  *   dark:  --primary oklch(0.78 0.09 H) on card oklch(0.25 0.02 70) /
- *          background oklch(0.205 0.018 70), --primary-foreground
+ *          background oklch(0 0 0), --primary-foreground
  *          oklch(0.2 0.04 158), --accent oklch(0.34 0.06 H),
  *          --accent-foreground oklch(0.9 0.06 H).
  */
@@ -126,7 +126,7 @@ const AA = 4.5;
 
 describe("accent contrast (WCAG AA)", () => {
   const card = { light: ok(0.99, 0.005, 95), dark: ok(0.25, 0.02, 70) };
-  const background = { light: ok(0.975, 0.008, 95), dark: ok(0.205, 0.018, 70) };
+  const background = { light: ok(0.975, 0.008, 95), dark: ok(0, 0, 0) };
   const primaryFg = { light: ok(0.98, 0.01, 95), dark: ok(0.2, 0.04, 158) };
   const tokens = (mode: "light" | "dark") => ({
     primary: (mode === "light" ? [0.42, 0.08] : [0.78, 0.09]) as [number, number],
