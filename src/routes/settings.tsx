@@ -909,15 +909,18 @@ function Switch({
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={
-        "rtl-flip relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border border-border transition-colors " +
+        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-border transition-colors disabled:cursor-not-allowed disabled:opacity-50 " +
         (checked ? "bg-primary" : "bg-muted")
       }
     >
       <span
         aria-hidden
         className={
+          // Logical rest position (start-0.5) + direction-aware travel:
+          // mirroring the root (rtl-flip) while translating physically threw
+          // the thumb outside the track in RTL. No mirror, no magic offsets.
           "pointer-events-none absolute start-0.5 block size-4 rounded-full bg-background shadow transition-transform " +
-          (checked ? "translate-x-[22px]" : "translate-x-0")
+          (checked ? "translate-x-[22px] rtl:-translate-x-[22px]" : "translate-x-0")
         }
       />
     </button>
