@@ -5,13 +5,18 @@ import {
   Check,
   Flame,
   Plus,
+  Share2,
   SkipForward,
+  Snowflake,
   Sprout,
   Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { usePrefs } from "@/components/app/preferences";
 import { Segmented } from "@/components/app/Segmented";
+import { Modal } from "@/components/app/Modal";
+import { drawShareCard, shareCardDataUrl, type ShareCellKind } from "@/lib/shareCard";
+import { isFrozenOn } from "@/lib/streaks";
 import { PageHeader } from "@/components/app/PageHeader";
 import { OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -59,8 +64,9 @@ const KIND_CLS: Record<DayKind, string> = {
   missed: "border-destructive/40 bg-destructive/30",
   upcoming: "border-border bg-accent/40",
   off: "border-border/40 bg-transparent",
+  frozen: "border-warning/60 bg-warning/20",
 };
-const KIND_LEGEND: DayKind[] = ["done", "skipped", "missed", "upcoming", "off"];
+const KIND_LEGEND: DayKind[] = ["done", "skipped", "missed", "upcoming", "off", "frozen"];
 
 function HabitsPage() {
   const { t, locale } = usePrefs();
@@ -129,6 +135,11 @@ function HabitsPage() {
     showToast(t.habits.toasts.deleted, () => habitApi.update(habit.id, { deletedAt: undefined }));
   };
 
+  const archiveHabit = (habit: Habit) => {
+    habitApi.update(habit.id, { archived: true });
+    showToast(t.habits.toasts.archived, () => habitApi.update(habit.id, { archived: false }));
+  };
+
   return (
     <section>
       <PageHeader
@@ -137,32 +148,23 @@ function HabitsPage() {
       />
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="segmented m-0" role="radiogroup" aria-label={t.nav.habits}>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={tab === "today"}
-            onClick={() => setTab("today")}
-            className="segment whitespace-nowrap"
-          >
-            {t.habits.view.today}
-            <span className="ms-1 text-xs font-normal text-muted-foreground">
-              {formatNumber(locale, dueToday.length)}
-            </span>
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={tab === "all"}
-            onClick={() => setTab("all")}
-            className="segment whitespace-nowrap"
-          >
-            {t.habits.view.all}
-            <span className="ms-1 text-xs font-normal text-muted-foreground">
-              {formatNumber(locale, active.length)}
-            </span>
-          </button>
-        </div>
+        <Segmented
+          label={t.nav.habits}
+          value={tab}
+          onChange={(v) => setTab(v === "all" ? "all" : "today")}
+          options={[
+            {
+              value: "today",
+              label: t.habits.view.today,
+              badge: formatNumber(locale, dueToday.length),
+            },
+            {
+              value: "all",
+              label: t.habits.view.all,
+              badge: formatNumber(locale, active.length),
+            },
+          ]}
+        />
         <button type="button" onClick={() => setShowNew(!showNew)} className={PRIMARY_BTN}>
           <Plus className="size-4" aria-hidden />
           {t.habits.newHabit}
@@ -217,6 +219,7 @@ function HabitsPage() {
               onExpand={() => setExpandedId(expandedId === h.id ? null : h.id)}
               onCycle={cycleDay}
               onDelete={() => removeHabit(h)}
+              onArchive={() => archiveHabit(h)}
             />
           ))}
           {archived.length > 0 && (
@@ -245,7 +248,7 @@ function HabitsPage() {
                       type="button"
                       onClick={() => removeHabit(h)}
                       aria-label={t.habits.delete}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-destructive"
+                      className="hit-extend rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-destructive"
                     >
                       <Trash2 className="size-4" aria-hidden />
                     </button>
@@ -265,13 +268,13 @@ function HabitsPage() {
 function HabitsSkeleton() {
   return (
     <section aria-busy="true">
-      <div className="mb-2 h-4 w-16 animate-pulse rounded bg-accent/30" />
-      <div className="h-9 w-56 animate-pulse rounded bg-accent/30" />
-      <div className="mt-6 h-10 w-44 animate-pulse rounded-lg bg-accent/30" />
+      <div className="mb-2 h-4 w-16 skeleton" />
+      <div className="h-9 w-56 skeleton" />
+      <div className="mt-6 h-10 w-44 skeleton rounded-lg" />
       <div className="mt-6 space-y-2">
-        <div className="h-14 animate-pulse rounded-xl bg-accent/30" />
-        <div className="h-14 animate-pulse rounded-xl bg-accent/30" />
-        <div className="h-14 animate-pulse rounded-xl bg-accent/30" />
+        <div className="h-14 skeleton rounded-xl" />
+        <div className="h-14 skeleton rounded-xl" />
+        <div className="h-14 skeleton rounded-xl" />
       </div>
     </section>
   );
@@ -541,6 +544,7 @@ function AllHabitRow({
   onExpand,
   onCycle,
   onDelete,
+  onArchive,
 }: {
   habit: Habit;
   logs: HabitLog[];
@@ -550,6 +554,7 @@ function AllHabitRow({
   onExpand: () => void;
   onCycle: (habitId: string, day: LocalDay) => void;
   onDelete: () => void;
+  onArchive: () => void;
 }) {
   const { t, locale } = usePrefs();
   const streaks = habitStreaks(habit, logs, today, weekStartsOn);
@@ -566,6 +571,17 @@ function AllHabitRow({
           <span className="text-sm font-medium">{habit.name}</span>
           <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span>{scheduleSummary(locale, habit.schedule, weekStartsOn, t.habits.everyday)}</span>
+            {habit.pausedUntil !== undefined && habit.pausedUntil >= today && (
+              <span className="chip border-warning/50 text-warning">
+                <Snowflake className="size-3" aria-hidden />
+                {t.habits.frozenChip.replace(
+                  "{date}",
+                  formatDate(locale, new Date(habit.pausedUntil + "T12:00:00Z"), {
+                    dateStyle: "medium",
+                  }),
+                )}
+              </span>
+            )}
             <span className="inline-flex items-center gap-1">
               <Flame className="size-3 text-primary" aria-hidden />
               {plural(locale, t.daysStreak, streaks.current)}
@@ -586,8 +602,12 @@ function AllHabitRow({
       {expanded && (
         <div className="border-t border-border p-3">
           <HabitEditor habit={habit} weekStartsOn={weekStartsOn} />
-          <div className="mt-4">
+          <FreezeControl habit={habit} today={today} />
+          <div className="mt-4 flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">{t.habits.history}</h3>
+            <ShareButton habit={habit} logs={logs} today={today} weekStartsOn={weekStartsOn} />
+          </div>
+          <div className="mt-2">
             <Heatmap
               habit={habit}
               logs={logs}
@@ -597,11 +617,7 @@ function AllHabitRow({
             />
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => habitApi.update(habit.id, { archived: true })}
-              className={OUTLINE_BTN + " px-3 py-1.5"}
-            >
+            <button type="button" onClick={onArchive} className={OUTLINE_BTN + " px-3 py-1.5"}>
               <Archive className="size-4" aria-hidden />
               {t.habits.archive}
             </button>
@@ -609,7 +625,7 @@ function AllHabitRow({
               type="button"
               onClick={onDelete}
               aria-label={t.habits.delete}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-destructive"
+              className="hit-extend rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-destructive"
             >
               <Trash2 className="size-4" aria-hidden />
             </button>
@@ -648,7 +664,9 @@ function Heatmap({
           ? t.habits.missed
           : kind === "upcoming"
             ? t.habits.upcoming
-            : t.habits.notScheduled;
+            : kind === "frozen"
+              ? t.habits.frozen
+              : t.habits.notScheduled;
 
   const weeks: LocalDay[][] = [];
   for (let w = 0; w < HEAT_WEEKS; w++) {
@@ -665,7 +683,7 @@ function Heatmap({
         {weeks.map((col, wi) => (
           <div key={col[0] ?? wi} className="flex flex-col gap-1">
             {col.map((day) => {
-              const kind = dayKind(habit.schedule, by, day, today);
+              const kind = dayKind(habit.schedule, by, day, today, habit);
               const canLog =
                 day >= windowStart && day <= today && isScheduledOn(habit.schedule, day);
               const title =
@@ -680,7 +698,7 @@ function Heatmap({
                   aria-label={title}
                   onClick={() => onLog(habit.id, day)}
                   className={
-                    "size-3 shrink-0 rounded-sm border transition-colors hover:ring-1 hover:ring-primary " +
+                    "size-4 shrink-0 rounded-sm border transition-colors hover:ring-1 hover:ring-primary " +
                     KIND_CLS[kind]
                   }
                 />
@@ -688,7 +706,7 @@ function Heatmap({
                 <span
                   key={day}
                   title={title}
-                  className={"size-3 shrink-0 rounded-sm border " + KIND_CLS[kind]}
+                  className={"size-4 shrink-0 rounded-sm border " + KIND_CLS[kind]}
                 />
               );
             })}
@@ -727,14 +745,197 @@ function CheckButton({
       aria-label={label}
       onClick={onToggle}
       className={
-        "grid size-5 shrink-0 place-items-center rounded-full border transition-colors " +
+        "hit-extend grid size-5 shrink-0 place-items-center rounded-full border transition-colors " +
         (checked
           ? "border-primary bg-primary text-primary-foreground"
           : "border-border text-transparent hover:border-primary")
       }
     >
-      <Check className="size-3" aria-hidden />
+      <Check className={checked ? "animate-check size-3" : "size-3"} aria-hidden />
     </button>
+  );
+}
+
+/* ---------------- streak freeze & share card ---------------- */
+
+function FreezeControl({ habit, today }: { habit: Habit; today: string }) {
+  const { t, locale } = usePrefs();
+  const [until, setUntil] = useState(addDays(today, 7));
+  const frozen = habit.pausedUntil !== undefined && habit.pausedUntil >= today;
+  return (
+    <div className="mt-3 rounded-lg border border-border bg-background/60 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-sm font-medium">
+          <Snowflake className="size-4 text-warning" aria-hidden />
+          {t.habits.freeze}
+        </p>
+        {frozen ? (
+          <button
+            type="button"
+            onClick={() =>
+              habitApi.update(habit.id, { pausedUntil: undefined, pausedFrom: undefined })
+            }
+            className={OUTLINE_BTN + " px-3 py-1.5"}
+          >
+            {t.habits.unfreeze}
+          </button>
+        ) : (
+          <span className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground" htmlFor={"freeze-" + habit.id}>
+              {t.habits.freezeUntil}
+            </label>
+            <input
+              id={"freeze-" + habit.id}
+              type="date"
+              min={today}
+              value={until}
+              onChange={(e) => setUntil(e.target.value || addDays(today, 7))}
+              className="h-8 rounded-md border border-border bg-card px-2 text-sm tabular-nums"
+            />
+            <button
+              type="button"
+              onClick={() => habitApi.update(habit.id, { pausedUntil: until, pausedFrom: today })}
+              className={PRIMARY_BTN + " px-3 py-1.5"}
+            >
+              {t.habits.freeze}
+            </button>
+          </span>
+        )}
+      </div>
+      <p className="mt-1.5 text-xs text-muted-foreground">{t.habits.freezeHint}</p>
+      {frozen && (
+        <p className="mt-1 text-xs text-warning">
+          {t.habits.frozenChip.replace(
+            "{date}",
+            formatDate(locale, new Date(habit.pausedUntil! + "T12:00:00Z"), {
+              dateStyle: "medium",
+            }),
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ShareButton({
+  habit,
+  logs,
+  today,
+  weekStartsOn,
+}: {
+  habit: Habit;
+  logs: HabitLog[];
+  today: string;
+  weekStartsOn: number;
+}) {
+  const { t, locale } = usePrefs();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={OUTLINE_BTN + " px-3 py-1.5"}>
+        <Share2 className="size-4" aria-hidden />
+        {t.habits.share}
+      </button>
+      {open && (
+        <ShareModal
+          habit={habit}
+          logs={logs}
+          today={today}
+          weekStartsOn={weekStartsOn}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function ShareModal({
+  habit,
+  logs,
+  today,
+  weekStartsOn,
+  onClose,
+}: {
+  habit: Habit;
+  logs: HabitLog[];
+  today: string;
+  weekStartsOn: number;
+  onClose: () => void;
+}) {
+  const { t, locale } = usePrefs();
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [url, setUrl] = useState("");
+  const draw = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const by = logsByDay(logs);
+    const firstWeek = startOfWeek(addDays(today, -(HEAT_WEEKS - 1) * 7), weekStartsOn);
+    const weeks: ShareCellKind[][] = [];
+    for (let w = 0; w < HEAT_WEEKS; w++) {
+      const col: ShareCellKind[] = [];
+      for (let i = 0; i < 7; i++) {
+        const day = addDays(firstWeek, w * 7 + i);
+        col.push(dayKind(habit.schedule, by, day, today, habit));
+      }
+      weeks.push(col);
+    }
+    const streaks = habitStreaks(habit, logs, today, weekStartsOn);
+    const cons = consistency30(habit, logs, today);
+    const css = getComputedStyle(document.documentElement);
+    const token = (name: string) => css.getPropertyValue(name).trim();
+    drawShareCard(canvas, {
+      title: habit.name,
+      subtitle: t.habits.shareTitle,
+      weeks,
+      stats: [
+        {
+          label: t.habits.consistency,
+          value: cons === null ? "—" : formatNumber(locale, Math.round(cons * 100)) + "%",
+        },
+        { label: t.habits.streakNow, value: formatNumber(locale, streaks.current) },
+        { label: t.habits.best, value: formatNumber(locale, streaks.best) },
+      ],
+      colors: {
+        background: token("--color-background"),
+        card: token("--color-card"),
+        foreground: token("--color-foreground"),
+        muted: token("--color-muted-foreground"),
+        primary: token("--color-primary"),
+        accent: token("--color-accent"),
+        border: token("--color-border"),
+        warning: token("--color-warning"),
+      },
+      rtl: locale === "ar",
+    });
+    setUrl(shareCardDataUrl(canvas));
+  };
+  // The canvas lives inside a Radix portal and mounts a commit after this
+  // component's effects — a callback ref draws the moment it exists.
+  const setCanvas = (el: HTMLCanvasElement | null) => {
+    canvasRef.current = el;
+    if (el) draw();
+  };
+  useEffect(() => {
+    draw();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [habit, logs, today, weekStartsOn, t, locale]);
+  return (
+    <Modal title={t.habits.share} onClose={onClose}>
+      <h2 className="font-display text-lg font-semibold">{t.habits.share}</h2>
+      <canvas
+        ref={setCanvas}
+        className="mt-3 w-full rounded-lg border border-border"
+        aria-label={t.habits.shareTitle}
+      />
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+        <button type="button" onClick={onClose} className={OUTLINE_BTN}>
+          {t.capture.close}
+        </button>
+        <a href={url} download={"tilth-" + habit.id + ".png"} className={PRIMARY_BTN}>
+          {t.habits.shareDownload}
+        </a>
+      </div>
+    </Modal>
   );
 }
 

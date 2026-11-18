@@ -1,6 +1,24 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Eye, Link2, Pencil, Pin, PinOff, Plus, Search, StickyNote, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+  Eye,
+  Link2,
+  ListTodo,
+  Pencil,
+  Pin,
+  PinOff,
+  Plus,
+  Search,
+  StickyNote,
+  Trash2,
+} from "lucide-react";
+import {
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type RefObject,
+} from "react";
 import { usePrefs } from "@/components/app/preferences";
 import { Segmented } from "@/components/app/Segmented";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -9,7 +27,7 @@ import { toast } from "sonner";
 import { formatDate, type Locale } from "@/lib/i18n";
 import { filterNotes, mdToHtml, sortNotes } from "@/lib/notes";
 import { NOTE_TEMPLATES, templateFor, type TemplateId } from "@/lib/templates";
-import { notes as noteApi, useStore } from "@/lib/store";
+import { notes as noteApi, tasks as taskApi, useStore } from "@/lib/store";
 import type { Note, Task } from "@/lib/types";
 
 export const Route = createFileRoute("/notes")({
@@ -38,6 +56,7 @@ function NotesPage() {
   const allNotes = useStore((s) => s.notes);
   const allTasks = useStore((s) => s.tasks);
   const [q, setQ] = useState("");
+  const deferredQ = useDeferredValue(q);
   const [showNew, setShowNew] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -66,7 +85,7 @@ function NotesPage() {
   if (!ready) return <NotesSkeleton />;
 
   const live = allNotes.filter((n) => !n.deletedAt);
-  const list = sortNotes(filterNotes(live, q));
+  const list = sortNotes(filterNotes(live, deferredQ));
   const liveTasks = allTasks.filter((x) => !x.deletedAt);
 
   const removeNote = (n: Note) => {
@@ -258,6 +277,31 @@ function NoteEditor({
   const [body, setBody] = useState(note.body);
   const [linkedTaskId, setLinkedTaskId] = useState(note.linkedTaskId ?? "");
   const [preview, setPreview] = useState(false);
+  const navigate = useNavigate();
+
+  const convert = () => {
+    const task = taskApi.add({ title: note.title || t.notes.untitled, notes: body });
+    noteApi.update(note.id, { linkedTaskId: task.id });
+    setLinkedTaskId(task.id);
+    toast(t.notes.converted);
+  };
+
+  const onPreviewClick = (e: MouseEvent<HTMLDivElement>) => {
+    const el = (e.target as HTMLElement).closest(".note-link");
+    if (!el) return;
+    const title = el.getAttribute("data-task-title") ?? "";
+    const task = tasks.find((x) => !x.deletedAt && x.title === title);
+    if (!task) {
+      toast(t.notes.backlinkMissing);
+      return;
+    }
+    try {
+      window.sessionStorage.setItem("tilth.open-task", task.id);
+    } catch {
+      /* ignore */
+    }
+    navigate({ to: "/tasks" });
+  };
   const valid = title.trim() !== "";
 
   const save = () => {
@@ -317,6 +361,7 @@ function NoteEditor({
           className="min-h-24 rounded-md border border-border bg-background p-3 text-sm"
           dir="auto"
           aria-label={t.notes.preview}
+          onClick={onPreviewClick}
         >
           {body.trim() === "" ? (
             <p className="text-muted-foreground">{t.notes.bodyPlaceholder}</p>
@@ -338,7 +383,12 @@ function NoteEditor({
           className="w-full rounded-md border border-border bg-background p-3 text-sm outline-none"
         />
       )}
-      <div className="flex items-center justify-end gap-2">
+      {!preview && <p className="mt-1 text-xs text-muted-foreground">{t.notes.backlinkHint}</p>}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button type="button" onClick={convert} className={OUTLINE_BTN}>
+          <ListTodo className="size-4" aria-hidden />
+          {t.notes.convert}
+        </button>
         <button
           type="button"
           onClick={onDelete}
@@ -456,13 +506,13 @@ function NewNoteForm({
 function NotesSkeleton() {
   return (
     <section aria-busy="true">
-      <div className="mb-2 h-4 w-16 animate-pulse rounded bg-accent/30" />
-      <div className="h-9 w-56 animate-pulse rounded bg-accent/30" />
-      <div className="mt-6 h-10 w-44 animate-pulse rounded-lg bg-accent/30" />
+      <div className="mb-2 h-4 w-16 skeleton" />
+      <div className="h-9 w-56 skeleton" />
+      <div className="mt-6 h-10 w-44 skeleton rounded-lg" />
       <div className="mt-6 space-y-2">
-        <div className="h-16 animate-pulse rounded-xl bg-accent/30" />
-        <div className="h-16 animate-pulse rounded-xl bg-accent/30" />
-        <div className="h-16 animate-pulse rounded-xl bg-accent/30" />
+        <div className="h-16 skeleton rounded-xl" />
+        <div className="h-16 skeleton rounded-xl" />
+        <div className="h-16 skeleton rounded-xl" />
       </div>
     </section>
   );

@@ -38,6 +38,8 @@ export interface Task extends BaseRecord {
   recurrence?: RecurrenceRule | undefined;
   /** Identifies one recurring series; generated instances inherit it (additive optional field). */
   seriesId?: string | undefined;
+  /** Time-block start, minutes from midnight, pinned by the user on /plan (additive optional). */
+  blockStart?: number | undefined;
   kanbanOrder: number;
 }
 
@@ -50,6 +52,10 @@ export interface Habit extends BaseRecord {
   name: string;
   schedule: HabitSchedule;
   archived: boolean;
+  /** Streak freeze window end: scheduled days inside it neither break nor extend (additive optional). */
+  pausedUntil?: LocalDay | undefined;
+  /** Streak freeze window start (the day freeze was set); additive optional. */
+  pausedFrom?: LocalDay | undefined;
 }
 
 export interface HabitLog extends BaseRecord {
@@ -88,7 +94,18 @@ export interface AchievementUnlock extends BaseRecord {
 }
 
 /** Unlockable accent themes â€” hue sets live in src/styles.css, unlock rules in rewardsConfig. */
-export const ACCENT_IDS = ["moss", "sage", "pine", "clay", "dusk"] as const;
+export const ACCENT_IDS = [
+  "moss",
+  "sage",
+  "pine",
+  "clay",
+  "dusk",
+  "sand",
+  "sky",
+  "ember",
+  "orchid",
+  "tide",
+] as const;
 export type AccentId = (typeof ACCENT_IDS)[number];
 
 /** A user-defined reward the user can buy with coins. */
@@ -97,6 +114,8 @@ export interface ShopItem extends BaseRecord {
   note?: string | undefined;
   /** Coin price â€” a positive integer. */
   price: number;
+  /** Preset category id from SHOP_CATEGORIES (additive optional). */
+  category?: string | undefined;
 }
 
 /**
@@ -136,7 +155,13 @@ export interface TaskViewFilter {
   priority: Priority | "all";
   tag: string | "all";
   search: string;
+  /** Additive optional: saved views also remember sort and display mode. */
+  sort?: TaskSort | undefined;
+  mode?: "list" | "board" | undefined;
 }
+
+/** Task list ordering options (pure sorter in lib/taskSort.ts). */
+export type TaskSort = "due" | "priority" | "created";
 
 /** A saved task-list view â€” a named set of filters the user can return to. */
 export interface SavedView extends BaseRecord {

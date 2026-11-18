@@ -27,12 +27,14 @@ import {
   type Note,
   type Purchase,
   type Settings,
+  type SavedView,
   type ShopItem,
   type Snapshot,
   type StorageKey,
   type SyncConflictEntry,
   type SyncSettings,
   type Task,
+  type TaskViewFilter,
   type XpLedgerEntry,
 } from "./types";
 import { fromSyncPayload, mergeSync, syncedCollectionsOf, toSyncPayload } from "./sync";
@@ -588,11 +590,38 @@ export const xp = {
   },
 };
 
+/* ---------------- saved views ---------------- */
+
+export const views = {
+  /** Saves the current filter/sort/mode combination under a user-given name. */
+  add(name: string, filters: TaskViewFilter): SavedView {
+    const t = nowIso();
+    const view: SavedView = { id: uid(), createdAt: t, updatedAt: t, name, filters };
+    setCollection("savedViews", (l) => [...l, view]);
+    return view;
+  },
+  remove(id: string) {
+    setCollection("savedViews", (l) =>
+      l.map((x) => (x.id === id ? { ...x, deletedAt: nowIso(), updatedAt: nowIso() } : x)),
+    );
+  },
+  restore(id: string) {
+    setCollection("savedViews", (l) =>
+      l.map((x) => (x.id === id ? { ...x, deletedAt: undefined, updatedAt: nowIso() } : x)),
+    );
+  },
+};
+
 /* ---------------- shop (user-defined rewards) ---------------- */
 
 export const shop = {
   /** Adds a user-defined reward (name, optional note, price in coins). */
-  addItem(input: Pick<ShopItem, "name" | "price"> & { note?: string | undefined }): ShopItem {
+  addItem(
+    input: Pick<ShopItem, "name" | "price"> & {
+      note?: string | undefined;
+      category?: string | undefined;
+    },
+  ): ShopItem {
     const t = nowIso();
     const item: ShopItem = { id: uid(), createdAt: t, updatedAt: t, ...input };
     setCollection("shopItems", (l) => [...l, item]);
@@ -733,9 +762,7 @@ export const sync = {
       const local = syncedCollectionsOf(s as unknown as Snapshot);
       const { merged, conflicts } = mergeSync(local, payload.collections, at);
       for (const [k, records] of Object.entries(merged)) {
-        setCollection(k as CollectionKey, () =>
-          records as unknown as Snapshot[CollectionKey],
-        );
+        setCollection(k as CollectionKey, () => records as unknown as Snapshot[CollectionKey]);
       }
       useStore.setState({
         settings: {
@@ -794,12 +821,17 @@ export const sync = {
     const chosen = winner === "local" ? conflict.local : conflict.remote;
     const [collection, recordId] = conflictId.split(":");
     const key = collection as CollectionKey;
-    setCollection(key, (list) =>
-      list.map((r) =>
-        r.id === recordId
-          ? ({ ...(chosen as Snapshot[CollectionKey][number]), updatedAt: nowIso() } as Snapshot[CollectionKey][number])
-          : r,
-      ) as unknown as Snapshot[CollectionKey],
+    setCollection(
+      key,
+      (list) =>
+        list.map((r) =>
+          r.id === recordId
+            ? ({
+                ...(chosen as Snapshot[CollectionKey][number]),
+                updatedAt: nowIso(),
+              } as Snapshot[CollectionKey][number])
+            : r,
+        ) as unknown as Snapshot[CollectionKey],
     );
     const next = conflicts.filter((c) => c.id !== conflictId);
     useStore.setState({
@@ -837,6 +869,10 @@ export async function importSnapshot(input: unknown) {
   const snap: Snapshot = { ...emptySnapshot(), ...(data as Partial<Snapshot>) };
   snap.meta = { ...snap.meta, schemaVersion: CURRENT_SCHEMA_VERSION, updatedAt: nowIso() };
   await replaceAll(snap);
+  // Imported history is real history: evaluate unlocks/bonuses against it.
+  // Deferred a tick so the extra store writes never land inside the import
+  // commit (same-tick cascades starve the router's pending transition).
+  window.setTimeout(() => applyBonusChecks(), 0);
 }
 
 export async function resetAll() {

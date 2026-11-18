@@ -169,10 +169,20 @@ function CalendarPage() {
       </div>
 
       {calMode === "week" && !weekHasAnything && (
-        <p className="mt-6 text-sm text-muted-foreground">{t.cal.empty}</p>
+        <div className="empty-card mt-6 py-8">
+          <span className="grid size-12 place-items-center rounded-full bg-accent/40 text-primary">
+            <CalendarDays className="size-6" aria-hidden />
+          </span>
+          <p className="text-sm text-muted-foreground">{t.cal.empty}</p>
+        </div>
       )}
       {calMode === "month" && monthEmpty && (
-        <p className="mt-6 text-sm text-muted-foreground">{t.cal.monthEmpty}</p>
+        <div className="empty-card mt-6 py-8">
+          <span className="grid size-12 place-items-center rounded-full bg-accent/40 text-primary">
+            <CalendarDays className="size-6" aria-hidden />
+          </span>
+          <p className="text-sm text-muted-foreground">{t.cal.monthEmpty}</p>
+        </div>
       )}
 
       {calMode === "month" && monthGrid && (
@@ -375,12 +385,12 @@ function DayDetail({ cell, locale }: { cell: WeekCell; locale: Locale }) {
 function CalendarSkeleton() {
   return (
     <section aria-busy="true">
-      <div className="mb-2 h-4 w-16 animate-pulse rounded bg-accent/30" />
-      <div className="h-9 w-56 animate-pulse rounded bg-accent/30" />
-      <div className="mt-6 h-8 w-72 animate-pulse rounded bg-accent/30" />
+      <div className="mb-2 h-4 w-16 skeleton" />
+      <div className="h-9 w-56 skeleton" />
+      <div className="mt-6 h-8 w-72 skeleton" />
       <div className="mt-4 grid grid-cols-4 gap-1.5 sm:grid-cols-7">
         {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-          <div key={i} className="h-24 animate-pulse rounded-lg bg-accent/30" />
+          <div key={i} className="h-24 skeleton rounded-lg" />
         ))}
       </div>
     </section>

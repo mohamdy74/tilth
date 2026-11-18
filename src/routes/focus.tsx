@@ -15,7 +15,7 @@ import { usePrefs } from "@/components/app/preferences";
 import { Segmented } from "@/components/app/Segmented";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Modal } from "@/components/app/Modal";
-import { OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
+import { OUTLINE_BTN, PRIMARY_BTN, DANGER_BTN } from "@/components/ui/button";
 import { toast } from "sonner";
 import { formatDate, formatNumber } from "@/lib/i18n";
 import { focus as focusApi, todayLocal, useStore } from "@/lib/store";
@@ -30,6 +30,7 @@ import {
   workMinutesToday,
 } from "@/lib/focusTime";
 import type { FocusSession } from "@/lib/types";
+import { startAmbience, stopAmbience, type AmbienceKind } from "@/lib/ambience";
 
 export const Route = createFileRoute("/focus")({
   head: () => ({
@@ -61,6 +62,7 @@ function FocusPage() {
   const [customBreak, setCustomBreak] = useState(5);
   const [linkedTaskId, setLinkedTaskId] = useState("");
   const [soundOn, setSoundOn] = useState(true);
+  const [ambience, setAmbience] = useState<AmbienceKind>("off");
   const [breakReady, setBreakReady] = useState<number | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [tick, setTick] = useState(0);
@@ -71,10 +73,29 @@ function FocusPage() {
   useEffect(() => {
     try {
       if (window.localStorage.getItem("tilth.focus-sound") === "0") setSoundOn(false);
+      const a = window.localStorage.getItem("tilth.focus-ambience");
+      if (a === "rain" || a === "brown" || a === "white") setAmbience(a);
     } catch {
       /* ignore */
     }
   }, []);
+
+  // Ambience lives only while a session runs and sound is on; every node is
+  // released on stop so repeated sessions never leak audio resources.
+  useEffect(() => {
+    if (active && soundOn && ambience !== "off") startAmbience(ambience);
+    else stopAmbience();
+  }, [active, soundOn, ambience]);
+  useEffect(() => () => stopAmbience(), []);
+
+  const pickAmbience = (k: AmbienceKind) => {
+    setAmbience(k);
+    try {
+      window.localStorage.setItem("tilth.focus-ambience", k);
+    } catch {
+      /* ignore */
+    }
+  };
 
   const toggleSound = () => {
     const next = !soundOn;
@@ -163,13 +184,15 @@ function FocusPage() {
         return;
       // TIL-F18: Space is a global shortcut only when focus is NOT on an
       // interactive control — otherwise it hijacks buttons and radios.
-      if (
-        el?.closest?.(
-          "button, a[href], [role='button'], [role='radio'], [role='checkbox'], [role='switch'], [role='tab'], [contenteditable]",
-        )
-      )
-        return;
+      // Escape must ALWAYS cancel: after a mouse click on Pause/Resume the
+      // focused button must not swallow the documented cancel shortcut.
       if (e.code === "Space") {
+        if (
+          el?.closest?.(
+            "button, a[href], [role='button'], [role='radio'], [role='checkbox'], [role='switch'], [role='tab'], [contenteditable]",
+          )
+        )
+          return;
         e.preventDefault();
         if (active) togglePause();
         else if (ready) startWork();
@@ -217,11 +240,8 @@ function FocusPage() {
               t.focus.minutes}
           </span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-accent/40">
-          <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: pct + "%" }}
-          />
+        <div className="meter">
+          <div className="meter-fill" style={{ width: pct + "%" }} />
         </div>
       </div>
 
@@ -229,6 +249,10 @@ function FocusPage() {
         <ActivePanel
           active={active}
           taskTitle={taskTitles.get(active.linkedTaskId ?? "")}
+          soundOn={soundOn}
+          onToggleSound={toggleSound}
+          ambience={ambience}
+          onAmbience={pickAmbience}
           onTogglePause={togglePause}
           onDistraction={distraction}
           onCancelRequest={() => setConfirming(true)}
@@ -245,19 +269,22 @@ function FocusPage() {
               onChange={(v) => setMode(v === "custom" ? "custom" : "pomodoro")}
               label={t.nav.focus}
             />
-            <button
-              type="button"
-              onClick={toggleSound}
-              aria-pressed={soundOn}
-              className={OUTLINE_BTN + " px-3 py-1.5"}
-            >
-              {soundOn ? (
-                <Volume2 className="size-4" aria-hidden />
-              ) : (
-                <VolumeX className="size-4" aria-hidden />
-              )}
-              {t.focus.sound}
-            </button>
+            <span className="flex items-center gap-2">
+              <AmbienceSelect value={ambience} onChange={pickAmbience} />
+              <button
+                type="button"
+                onClick={toggleSound}
+                aria-pressed={soundOn}
+                className={OUTLINE_BTN + " px-3 py-1.5"}
+              >
+                {soundOn ? (
+                  <Volume2 className="size-4" aria-hidden />
+                ) : (
+                  <VolumeX className="size-4" aria-hidden />
+                )}
+                {t.focus.sound}
+              </button>
+            </span>
           </div>
           {mode === "pomodoro" ? (
             <p className="text-sm text-muted-foreground">{t.focus.pomodoroHint}</p>
@@ -337,11 +364,7 @@ function FocusPage() {
             <button type="button" onClick={() => setConfirming(false)} className={OUTLINE_BTN}>
               {t.focus.keep}
             </button>
-            <button
-              type="button"
-              onClick={confirmCancel}
-              className={OUTLINE_BTN + " text-destructive"}
-            >
+            <button type="button" onClick={confirmCancel} className={DANGER_BTN}>
               {t.focus.cancel}
             </button>
           </div>
@@ -353,15 +376,26 @@ function FocusPage() {
 
 /* ---------------- active session ---------------- */
 
+const FOCUS_R = 45; // pure geometry, workerd-safe at module level
+const FOCUS_C = 2 * Math.PI * FOCUS_R;
+
 function ActivePanel({
   active,
   taskTitle,
+  soundOn,
+  onToggleSound,
+  ambience,
+  onAmbience,
   onTogglePause,
   onDistraction,
   onCancelRequest,
 }: {
   active: FocusSession;
   taskTitle: string | undefined;
+  soundOn: boolean;
+  onToggleSound: () => void;
+  ambience: AmbienceKind;
+  onAmbience: (k: AmbienceKind) => void;
   onTogglePause: () => void;
   onDistraction: () => void;
   onCancelRequest: () => void;
@@ -370,31 +404,90 @@ function ActivePanel({
   // Wall-clock math on every render — never interval counting.
   const remaining = remainingMs(active, Date.now());
   const total = active.plannedMinutes * 60_000;
-  const elapsedPct = Math.min(100, Math.round(((total - remaining) / total) * 100));
+  const remainingRatio = Math.max(0, Math.min(1, remaining / total));
   const paused = active.pausedAt !== undefined;
+  const isBreak = active.mode === "break";
   return (
     <div className="panel mt-6 p-6 text-center">
-      <p className="text-sm font-medium text-primary">
-        {active.mode === "break" ? t.focus.break : t.focus.mode[active.mode]}
-        {taskTitle !== undefined && (
-          <span className="text-muted-foreground">{" — " + taskTitle}</span>
-        )}
-      </p>
-      <p className="mt-4 font-display text-6xl font-semibold tabular-nums md:text-7xl">
-        {clock(remaining)}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {formatNumber(locale, active.plannedMinutes) + " " + t.focus.minutes}
-      </p>
-      <div className="mx-auto mt-4 h-1.5 max-w-sm overflow-hidden rounded-full bg-accent/40">
-        <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: elapsedPct + "%" }}
-        />
+      <div className="flex items-center justify-between gap-3">
+        <p className="min-w-0 truncate text-sm font-medium text-primary">
+          {active.mode === "break" ? t.focus.break : t.focus.mode[active.mode]}
+          {taskTitle !== undefined && (
+            <span className="text-muted-foreground">{" — " + taskTitle}</span>
+          )}
+        </p>
+        <AmbienceSelect value={ambience} onChange={onAmbience} compact />
+        {/* Mute stays reachable mid-session — a running chime can always be silenced. */}
+        <button
+          type="button"
+          onClick={onToggleSound}
+          aria-pressed={soundOn}
+          aria-label={t.focus.sound}
+          title={t.focus.sound}
+          className={
+            "hit-extend shrink-0 rounded-full p-2 transition-colors " +
+            (soundOn
+              ? "text-primary hover:bg-accent/40"
+              : "text-muted-foreground hover:bg-accent/40")
+          }
+        >
+          {soundOn ? (
+            <Volume2 className="size-5" aria-hidden />
+          ) : (
+            <VolumeX className="size-5" aria-hidden />
+          )}
+        </button>
       </div>
-      {paused && <p className="mt-3 text-sm text-muted-foreground">{t.focus.pause}</p>}
+
+      <div className="relative mx-auto mt-5 w-fit">
+        <svg
+          viewBox="0 0 100 100"
+          className={
+            "size-56 md:size-64 " +
+            (isBreak ? "text-info" : "text-primary") +
+            (paused ? " opacity-60" : " timer-glow animate-breathe")
+          }
+          aria-hidden
+        >
+          <circle
+            cx="50"
+            cy="50"
+            r={FOCUS_R}
+            fill="none"
+            strokeWidth="5"
+            className="stroke-accent/40"
+          />
+          <circle
+            cx="50"
+            cy="50"
+            r={FOCUS_R}
+            fill="none"
+            strokeWidth="5"
+            strokeLinecap="round"
+            stroke="currentColor"
+            strokeDasharray={FOCUS_C}
+            strokeDashoffset={FOCUS_C * (1 - remainingRatio)}
+            transform="rotate(-90 50 50)"
+            style={{ transition: "stroke-dashoffset 500ms linear" }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <p
+            role="timer"
+            aria-live="off"
+            className="font-display text-5xl font-semibold tabular-nums md:text-6xl"
+          >
+            {clock(remaining)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+            {formatNumber(locale, active.plannedMinutes) + " " + t.focus.minutes}
+          </p>
+          {paused && <p className="mt-2 text-sm text-muted-foreground">{t.focus.pause}</p>}
+        </div>
+      </div>
+
       <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-        <button type="button" onClick={onTogglePause} className={OUTLINE_BTN}>
+        <button type="button" onClick={onTogglePause} className={PRIMARY_BTN}>
           {paused ? (
             <Play className="size-4" aria-hidden />
           ) : (
@@ -510,13 +603,13 @@ function HistorySection({
 function FocusSkeleton() {
   return (
     <section aria-busy="true">
-      <div className="mb-2 h-4 w-16 animate-pulse rounded bg-accent/30" />
-      <div className="h-9 w-56 animate-pulse rounded bg-accent/30" />
-      <div className="mt-6 h-2 w-full animate-pulse rounded-full bg-accent/30" />
-      <div className="mt-4 h-56 animate-pulse rounded-xl bg-accent/30" />
+      <div className="skeleton mb-2 h-4 w-16" />
+      <div className="skeleton h-9 w-56" />
+      <div className="skeleton mt-6 h-2 w-full rounded-full" />
+      <div className="skeleton mt-4 h-56 rounded-xl" />
       <div className="mt-6 space-y-2">
-        <div className="h-10 animate-pulse rounded-lg bg-accent/30" />
-        <div className="h-10 animate-pulse rounded-lg bg-accent/30" />
+        <div className="skeleton h-10 rounded-lg" />
+        <div className="skeleton h-10 rounded-lg" />
       </div>
     </section>
   );
@@ -532,6 +625,43 @@ function FocusEmpty() {
       <p className="font-display text-lg font-semibold">{t.focus.empty.title}</p>
       <p className="text-sm text-muted-foreground">{t.focus.empty.body}</p>
     </div>
+  );
+}
+
+function AmbienceSelect({
+  value,
+  onChange,
+  compact,
+}: {
+  value: AmbienceKind;
+  onChange: (k: AmbienceKind) => void;
+  compact?: boolean;
+}) {
+  const { t } = usePrefs();
+  const label = (k: AmbienceKind) =>
+    k === "off"
+      ? t.focus.ambienceOff
+      : k === "rain"
+        ? t.focus.ambienceRain
+        : k === "brown"
+          ? t.focus.ambienceBrown
+          : t.focus.ambienceWhite;
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className={compact ? "sr-only" : ""}>{t.focus.ambience}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as AmbienceKind)}
+        aria-label={t.focus.ambience}
+        className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground"
+      >
+        {(["off", "rain", "brown", "white"] as AmbienceKind[]).map((k) => (
+          <option key={k} value={k}>
+            {t.focus.ambience + ": " + label(k)}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

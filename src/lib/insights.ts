@@ -1,4 +1,13 @@
-import { addDays, toLocalDay, weekdayOf } from "./dates";
+import {
+  addDays,
+  addMonths,
+  endOfMonth,
+  endOfWeek,
+  startOfMonth,
+  startOfWeek,
+  toLocalDay,
+  weekdayOf,
+} from "./dates";
 import { actualMinutes } from "./focusTime";
 import { isScheduledOn, logsByDay } from "./streaks";
 import type { FocusSession, Habit, HabitLog, LocalDay, Task, XpLedgerEntry } from "./types";
@@ -269,4 +278,188 @@ export function insightsReport(input: {
   }
 
   return { activeDays, hasAnyData, observations };
+}
+
+/* ---------------- weekly review ---------------- */
+
+export interface WeekMetrics {
+  tasksDone: number;
+  focusMinutes: number;
+  habitDone: number;
+  habitScheduled: number;
+  xp: number;
+}
+
+export interface WeeklyReview {
+  weekStart: LocalDay;
+  weekEnd: LocalDay;
+  current: WeekMetrics;
+  previous: WeekMetrics;
+  /** Open tasks due on or before the week end — candidates to carry forward. */
+  carryOver: {
+    id: string;
+    title: string;
+    dueDate: LocalDay | undefined;
+    priority: Task["priority"];
+  }[];
+}
+
+function weekMetrics(input: {
+  tasks: Task[];
+  habitLogs: HabitLog[];
+  habits: Habit[];
+  focusSessions: FocusSession[];
+  xpLedger: XpLedgerEntry[];
+  from: LocalDay;
+  to: LocalDay;
+  dayStartHour: number;
+  timeZone: string;
+}): WeekMetrics {
+  const inRange = (d: LocalDay) => d >= input.from && d <= input.to;
+  const tasksDone = input.tasks.filter(
+    (t) =>
+      !t.deletedAt &&
+      t.status === "done" &&
+      t.completedAt !== undefined &&
+      inRange(toLocalDay(new Date(t.completedAt), input.dayStartHour, input.timeZone)),
+  ).length;
+  const focusMinutes = input.focusSessions
+    .filter((s) => !s.deletedAt && s.completed && s.mode !== "break" && inRange(s.localDay))
+    .reduce((sum, s) => sum + s.plannedMinutes, 0);
+  let habitDone = 0;
+  let habitScheduled = 0;
+  const liveHabits = input.habits.filter((h) => !h.deletedAt && !h.archived);
+  for (let d = input.from; d <= input.to; d = addDays(d, 1)) {
+    for (const h of liveHabits) {
+      if (!isScheduledOn(h.schedule, d)) continue;
+      habitScheduled++;
+      const log = input.habitLogs.find(
+        (l) => !l.deletedAt && l.habitId === h.id && l.localDay === d && l.status === "done",
+      );
+      if (log) habitDone++;
+    }
+  }
+  const xp = input.xpLedger
+    .filter((e) => !e.deletedAt && inRange(e.localDay))
+    .reduce((sum, e) => sum + Math.max(0, e.xp), 0);
+  return { tasksDone, focusMinutes, habitDone, habitScheduled, xp };
+}
+
+/**
+ * The weekly review ritual: this week vs last week on stored days, plus the
+ * open tasks that did not get done in time (carry-over candidates).
+ */
+export function weeklyReview(input: {
+  tasks: Task[];
+  habits: Habit[];
+  habitLogs: HabitLog[];
+  focusSessions: FocusSession[];
+  xpLedger: XpLedgerEntry[];
+  today: LocalDay;
+  weekStartsOn: number;
+  dayStartHour: number;
+  timeZone: string;
+}): WeeklyReview {
+  const weekStart = startOfWeek(input.today, input.weekStartsOn);
+  const weekEnd = endOfWeek(input.today, input.weekStartsOn);
+  const prevStart = addDays(weekStart, -7);
+  const prevEnd = addDays(weekStart, -1);
+  const base = {
+    tasks: input.tasks,
+    habits: input.habits,
+    habitLogs: input.habitLogs,
+    focusSessions: input.focusSessions,
+    xpLedger: input.xpLedger,
+    dayStartHour: input.dayStartHour,
+    timeZone: input.timeZone,
+  };
+  const carryOver = input.tasks
+    .filter(
+      (t) => !t.deletedAt && t.status !== "done" && t.dueDate !== undefined && t.dueDate <= weekEnd,
+    )
+    .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))
+    .map((t) => ({ id: t.id, title: t.title, dueDate: t.dueDate, priority: t.priority }));
+  return {
+    weekStart,
+    weekEnd,
+    current: weekMetrics({ ...base, from: weekStart, to: weekEnd }),
+    previous: weekMetrics({ ...base, from: prevStart, to: prevEnd }),
+    carryOver,
+  };
+}
+
+/* ---------------- weekday focus aggregate ---------------- */
+
+export interface WeekdayFocus {
+  weekday: number; // 0=Sun..6=Sat
+  sessions: number;
+  avgMinutes: number;
+}
+
+/** Average completed work minutes per weekday over the window (stored days). */
+export function weekdayFocus(
+  sessions: FocusSession[],
+  today: LocalDay,
+  days = ACTIVE_WINDOW_DAYS,
+): WeekdayFocus[] {
+  const from = addDays(today, -(days - 1));
+  const acc = Array.from({ length: 7 }, (_, weekday) => ({ weekday, sessions: 0, minutes: 0 }));
+  for (const s of sessions) {
+    if (s.deletedAt || !s.completed || s.mode === "break") continue;
+    if (s.localDay < from || s.localDay > today) continue;
+    const a = acc[weekdayOf(s.localDay)]!;
+    a.sessions++;
+    a.minutes += s.plannedMinutes;
+  }
+  return acc.map((a) => ({
+    weekday: a.weekday,
+    sessions: a.sessions,
+    avgMinutes: a.sessions === 0 ? 0 : Math.round(a.minutes / a.sessions),
+  }));
+}
+
+/* ---------------- month over month ---------------- */
+
+export interface MonthCompare {
+  thisMinutes: number;
+  lastMinutes: number;
+  deltaPct: number;
+  thisActiveDays: number;
+  lastActiveDays: number;
+}
+
+const MONTH_MIN_ACTIVE_DAYS = 14;
+
+/**
+ * Focus minutes this calendar month vs the previous one. Returns null unless
+ * BOTH months carry at least MONTH_MIN_ACTIVE_DAYS active days — the same
+ * honesty floor as the observations engine.
+ */
+export function monthOverMonth(sessions: FocusSession[], today: LocalDay): MonthCompare | null {
+  const thisStart = startOfMonth(today);
+  const thisEnd = endOfMonth(today);
+  const lastStart = startOfMonth(addMonths(today, -1));
+  const lastEnd = endOfMonth(addMonths(today, -1));
+  const sum = (from: LocalDay, to: LocalDay) => {
+    let minutes = 0;
+    const days = new Set<LocalDay>();
+    for (const s of sessions) {
+      if (s.deletedAt || !s.completed || s.mode === "break") continue;
+      if (s.localDay < from || s.localDay > to) continue;
+      minutes += s.plannedMinutes;
+      days.add(s.localDay);
+    }
+    return { minutes, active: days.size };
+  };
+  const a = sum(thisStart, thisEnd);
+  const b = sum(lastStart, lastEnd);
+  if (a.active < MONTH_MIN_ACTIVE_DAYS || b.active < MONTH_MIN_ACTIVE_DAYS) return null;
+  const deltaPct = b.minutes === 0 ? 0 : Math.round(((a.minutes - b.minutes) / b.minutes) * 100);
+  return {
+    thisMinutes: a.minutes,
+    lastMinutes: b.minutes,
+    deltaPct,
+    thisActiveDays: a.active,
+    lastActiveDays: b.active,
+  };
 }

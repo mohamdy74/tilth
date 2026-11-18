@@ -1,6 +1,12 @@
 import { useRef, type MutableRefObject } from "react";
 
-export type SegmentOption = { value: string; label: string; icon?: React.ReactNode };
+export type SegmentOption = {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+  /** Optional localized count shown after the label (e.g. view totals). */
+  badge?: string;
+};
 
 /**
  * The single segmented control for every view/toggle switcher (audit
@@ -15,11 +21,13 @@ export function Segmented({
   value,
   onChange,
   label,
+  className,
 }: {
   options: SegmentOption[];
   value: string;
   onChange: (v: string) => void;
   label: string;
+  className?: string;
 }) {
   const refs: MutableRefObject<Array<HTMLButtonElement | null>> = useRef([]);
   const activeIndex = Math.max(
@@ -58,7 +66,12 @@ export function Segmented({
   };
 
   return (
-    <div className="segmented m-0" role="radiogroup" aria-label={label} onKeyDown={onKeyDown}>
+    <div
+      className={"segmented m-0" + (className ? " " + className : "")}
+      role="radiogroup"
+      aria-label={label}
+      onKeyDown={onKeyDown}
+    >
       {options.map((o, i) => (
         <button
           key={o.value}
@@ -70,10 +83,15 @@ export function Segmented({
           aria-checked={value === o.value}
           tabIndex={value === o.value ? 0 : -1}
           onClick={() => onChange(o.value)}
-          className="segment"
+          className="segment whitespace-nowrap"
         >
           {o.icon}
           {o.label}
+          {o.badge !== undefined && (
+            <span className="ms-1 text-xs font-normal text-muted-foreground tabular-nums">
+              {o.badge}
+            </span>
+          )}
         </button>
       ))}
     </div>

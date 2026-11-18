@@ -5,7 +5,7 @@
 
 import { generateSW } from "workbox-build";
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 function findShellDirs(root, matches = []) {
@@ -61,6 +61,28 @@ await generateSW({
   inlineWorkboxRuntime: true,
   swDest: join(outDir, "sw.js"),
 });
+
+// Digest notification actions: route done/snooze clicks to an open client
+// (the app applies them); with no client open, focus the app instead.
+appendFileSync(
+  join(outDir, "sw.js"),
+  `
+/* Tilth digest notification actions — routed to open clients. */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const action = event.action || "open";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        client.postMessage({ type: "tilth-notif", action, tag: event.notification.tag });
+        if ("focus" in client) return client.focus();
+      }
+      return self.clients.openWindow("/");
+    }),
+  );
+});
+`,
+);
 
 // Self-check: the published worker must precache the app shell and the
 // hashed assets, and keep the SKIP_WAITING listener the update banner uses.

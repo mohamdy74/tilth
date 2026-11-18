@@ -10,8 +10,19 @@ const state = (level: number, unlockedAchievements: string[] = []) => ({
 });
 
 describe("themes", () => {
-  it("ships five accents, moss first, each with its own hue", () => {
-    expect(THEMES.map((th) => th.id)).toEqual(["moss", "sage", "pine", "clay", "dusk"]);
+  it("ships ten accents, moss first, each with its own hue", () => {
+    expect(THEMES.map((th) => th.id)).toEqual([
+      "moss",
+      "sage",
+      "pine",
+      "clay",
+      "dusk",
+      "sand",
+      "sky",
+      "ember",
+      "orchid",
+      "tide",
+    ]);
     expect(ACCENT_IDS[0]).toBe("moss");
     expect(DEFAULT_ACCENT).toBe("moss");
     expect(new Set(THEMES.map((th) => th.hue)).size).toBe(THEMES.length);

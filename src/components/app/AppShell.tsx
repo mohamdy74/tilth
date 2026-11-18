@@ -10,6 +10,7 @@ import {
   StickyNote,
   SunMoon,
   Target,
+  Timer,
   Trophy,
   type LucideIcon,
 } from "lucide-react";
@@ -20,13 +21,21 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { usePrefs } from "./preferences";
-import { useStore, tasks as tasksApi, notes as notesApi, todayLocal } from "@/lib/store";
+import {
+  useStore,
+  tasks as tasksApi,
+  notes as notesApi,
+  habits as habitsApi,
+  focus as focusApi,
+  todayLocal,
+} from "@/lib/store";
 import { totalsFromLedger } from "@/lib/rewards";
 import { resolveAccent } from "@/lib/themes";
 import { isActive } from "@/lib/focusTime";
 import { applyUpdate, registerPwa } from "@/lib/pwa";
 import { toLocalDay } from "@/lib/dates";
 import { searchAll } from "@/lib/search";
+import { formatNumber } from "@/lib/i18n";
 import { captureFromText } from "@/lib/capture";
 import { composeDigest } from "@/lib/digestNotify";
 import { QuickCapture } from "./QuickCapture";
@@ -146,7 +155,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (!ready || !digestPrefs?.enabled) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const fire = () => {
+    const fire = async () => {
       const now = new Date();
       const s = useStore.getState();
       const note = composeDigest(
@@ -170,21 +179,70 @@ export function AppShell({ children }: { children: ReactNode }) {
         );
         const today = toLocalDay(now, s.settings.dayStartHour, tz);
         if (seen[note.slot] === today) return;
-        new Notification(note.title, {
+        const snoozeUntil = Number(window.localStorage.getItem("tilth.digest-snooze") || 0);
+        if (now.getTime() < snoozeUntil) return;
+        const options: NotificationOptions = {
           body: note.body,
           tag: "tilth-digest-" + note.slot,
           icon: "/icons/icon-192.png",
-        });
+        };
+        // Published app: the service worker adds done/snooze actions. Dev and
+        // preview have no worker, so the plain notification degrades gracefully.
+        const reg = await navigator.serviceWorker?.getRegistration?.();
+        if (reg?.active) {
+          await reg.showNotification(note.title, {
+            ...options,
+            actions: [
+              { action: "done", title: t.notifActions.done },
+              { action: "snooze", title: t.notifActions.snooze },
+            ],
+          } as NotificationOptions);
+        } else {
+          new Notification(note.title, options);
+        }
         seen[note.slot] = today;
         window.localStorage.setItem("tilth.digest", JSON.stringify(seen));
       } catch {
         /* ignore */
       }
     };
-    fire();
-    const id = window.setInterval(fire, 60_000);
+    void fire();
+    const id = window.setInterval(() => void fire(), 60_000);
     return () => window.clearInterval(id);
   }, [ready, digestPrefs, dayStartHour, t]);
+
+  // Digest notification actions arrive from the service worker (published app).
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.serviceWorker) return;
+    const onMessage = (e: MessageEvent) => {
+      const data = e.data as { type?: string; action?: string } | null;
+      if (!data || data.type !== "tilth-notif") return;
+      if (data.action === "snooze") {
+        try {
+          window.localStorage.setItem("tilth.digest-snooze", String(Date.now() + 3_600_000));
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      if (data.action === "done") {
+        const s = useStore.getState();
+        const today = todayLocal();
+        const next = s.tasks
+          .filter(
+            (x) =>
+              !x.deletedAt && x.status !== "done" && x.dueDate !== undefined && x.dueDate <= today,
+          )
+          .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))[0];
+        if (next) {
+          tasksApi.complete(next.id);
+          toast(t.tasks.toasts.completed);
+        }
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [t]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -193,7 +251,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       <aside className="fixed inset-y-0 start-0 z-30 hidden w-60 flex-col border-e border-border bg-sidebar px-3 py-5 md:flex">
         <div className="mb-6 flex items-center gap-2 px-2">
-          <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
+          <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-primary to-info text-primary-foreground shadow-soft">
             <Target className="size-4" aria-hidden />
           </span>
           <span className="font-display text-lg font-semibold">{t.appName}</span>
@@ -295,6 +353,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </nav>
+
+      {/* Mobile capture FAB — quick capture was desktop/keyboard-only before. */}
+      <button
+        type="button"
+        onClick={() => setCaptureOpen(true)}
+        aria-label={t.capture.title}
+        className="fixed bottom-[calc(84px+env(safe-area-inset-bottom))] end-4 z-30 grid size-13 place-items-center rounded-full bg-primary text-primary-foreground shadow-elevated transition-transform active:scale-95 md:hidden"
+      >
+        <Plus className="size-6" aria-hidden />
+      </button>
 
       {needRefresh && (
         <div
@@ -479,7 +547,9 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
           /* ignore */
         }
         onClose();
-        navigate({ to: hit.kind === "task" ? "/tasks" : hit.kind === "note" ? "/notes" : "/habits" });
+        navigate({
+          to: hit.kind === "task" ? "/tasks" : hit.kind === "note" ? "/notes" : "/habits",
+        });
       },
     }));
   }, [q, t, onClose, navigate]);
@@ -489,23 +559,44 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     if (nq.length < 2) return [];
     const result = captureFromText(nq, todayLocal());
     if (!result.title) return [];
-    const isTask = result.kind === "task";
+    const label =
+      result.kind === "task"
+        ? t.command.captureTask.replace("{text}", result.title)
+        : result.kind === "habit"
+          ? t.command.captureHabit.replace("{text}", result.title)
+          : result.kind === "focus"
+            ? t.command.captureFocus.replace("{n}", formatNumber(locale, result.minutes ?? 25))
+            : t.command.captureNote.replace("{text}", result.title);
+    const icon =
+      result.kind === "task"
+        ? ListTodo
+        : result.kind === "habit"
+          ? Repeat
+          : result.kind === "focus"
+            ? Timer
+            : StickyNote;
     return [
       {
         key: "capture",
-        label: isTask ? t.command.captureTask.replace("{text}", result.title) : t.command.captureNote.replace("{text}", result.title),
-        icon: isTask ? ListTodo : StickyNote,
-        detail: isTask ? t.command.captureHeading : "",
+        label,
+        icon,
+        detail: t.command.captureHeading,
         run: () => {
           try {
             onClose();
-            if (isTask) {
+            if (result.kind === "task") {
               const taskInput: Parameters<typeof tasksApi.add>[0] = { title: result.title };
               if (result.tags.length) taskInput.tags = result.tags;
               if (result.priority) taskInput.priority = result.priority;
               if (result.dueDate) taskInput.dueDate = result.dueDate;
               tasksApi.add(taskInput);
               navigate({ to: "/tasks" });
+            } else if (result.kind === "habit") {
+              habitsApi.add(result.title, { type: "daily", days: [0, 1, 2, 3, 4, 5, 6] });
+              navigate({ to: "/habits" });
+            } else if (result.kind === "focus") {
+              focusApi.start("custom", result.minutes ?? 25);
+              navigate({ to: "/focus" });
             } else {
               notesApi.add({ title: result.title, body: result.body });
               navigate({ to: "/notes" });
@@ -516,14 +607,21 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
         },
       },
     ];
-  }, [q, t, onClose, navigate, tasksApi, notesApi]);
+  }, [q, t, onClose, navigate, locale]);
 
   const flat = useMemo(() => [...capture, ...items, ...content], [capture, items, content]);
 
   useEffect(() => {
     prevFocus.current = document.activeElement;
     inputRef.current?.focus();
-    return () => (prevFocus.current as HTMLElement | null)?.focus?.();
+    // A dialog closing in the same tick (Radix restores focus to its opener
+    // asynchronously) can steal focus right after we take it — re-assert once
+    // the dust settles so ⌘K always lands in the input.
+    const id = window.setTimeout(() => inputRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(id);
+      (prevFocus.current as HTMLElement | null)?.focus?.();
+    };
   }, []);
   useEffect(() => setIdx(0), [q]);
 
@@ -573,7 +671,15 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
               {t.command.empty}
             </li>
           )}
-          {items.map((n, i) => (
+          {capture.length > 0 && (
+            <li
+              role="presentation"
+              className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+            >
+              {t.command.captureHeading}
+            </li>
+          )}
+          {capture.map((n, i) => (
             <li
               key={n.key}
               role="option"
@@ -582,11 +688,28 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
               onClick={() => go(i)}
               className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm aria-selected:bg-accent aria-selected:text-accent-foreground"
             >
-              <n.icon className="size-4" aria-hidden />
+              <n.icon className="size-4 text-primary" aria-hidden />
               <span className="min-w-0 flex-1 truncate">{n.label}</span>
               <ChevronRight className="size-4 opacity-60 rtl-flip" aria-hidden />
             </li>
           ))}
+          {items.map((n, i) => {
+            const gi = capture.length + i;
+            return (
+              <li
+                key={n.key}
+                role="option"
+                aria-selected={gi === idx}
+                onMouseEnter={() => setIdx(gi)}
+                onClick={() => go(gi)}
+                className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm aria-selected:bg-accent aria-selected:text-accent-foreground"
+              >
+                <n.icon className="size-4" aria-hidden />
+                <span className="min-w-0 flex-1 truncate">{n.label}</span>
+                <ChevronRight className="size-4 opacity-60 rtl-flip" aria-hidden />
+              </li>
+            );
+          })}
           {content.length > 0 && (
             <li
               role="presentation"
@@ -596,7 +719,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
             </li>
           )}
           {content.map((n, i) => {
-            const gi = items.length + i;
+            const gi = capture.length + items.length + i;
             return (
               <li
                 key={n.key}

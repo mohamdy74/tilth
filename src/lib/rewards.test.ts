@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { awardXp, revokeXp, totalsFromLedger, type NewXpEntry } from "./rewards";
+import { xpSeriesByDay, awardXp, revokeXp, totalsFromLedger, type NewXpEntry } from "./rewards";
 import { HABIT_XP, TASK_XP, levelFromXp, totalXpForLevel, xpForLevel } from "./rewardsConfig";
 import type { FocusSession, Task, XpLedgerEntry } from "./types";
 
@@ -367,5 +367,48 @@ describe("totalsFromLedger (derived XP, coins, level)", () => {
     expect(totals.level).toBe(3);
     expect(totals.xpIntoLevel).toBe(0);
     expect(totals.xpForNextLevel).toBe(xpForLevel(3));
+  });
+});
+
+describe("xpSeriesByDay", () => {
+  it("returns one point per day, oldest first, zero-filled", () => {
+    const entry = (day: string, xp: number) => ({
+      id: day,
+      createdAt: day + "T09:00:00Z",
+      updatedAt: day + "T09:00:00Z",
+      sourceType: "task" as const,
+      sourceId: day,
+      localDay: day,
+      xp,
+      coins: 0,
+    });
+    const series = xpSeriesByDay(
+      [entry("2026-11-17", 20), entry("2026-11-18", 5)],
+      "2026-11-18",
+      3,
+    );
+    expect(series.map((p) => p.day)).toEqual(["2026-11-16", "2026-11-17", "2026-11-18"]);
+    expect(series.map((p) => p.xp)).toEqual([0, 20, 5]);
+  });
+
+  it("ignores soft-deleted entries and negative (shop) xp", () => {
+    const series = xpSeriesByDay(
+      [
+        {
+          id: "x",
+          createdAt: "2026-11-18T09:00:00Z",
+          updatedAt: "2026-11-18T09:00:00Z",
+          deletedAt: "2026-11-18T10:00:00Z",
+          sourceType: "task",
+          sourceId: "x",
+          localDay: "2026-11-18",
+          xp: 50,
+          coins: 0,
+        },
+      ],
+      "2026-11-18",
+      2,
+    );
+    expect(series.every((p) => p.xp === 0)).toBe(true);
   });
 });

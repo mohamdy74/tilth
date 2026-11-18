@@ -10,7 +10,21 @@ import type { Habit, HabitLog, HabitSchedule, LocalDay } from "./types";
 /** Gentle recovery: at most this many skips per calendar week are protected. */
 export const SKIP_LIMIT_PER_WEEK = 2;
 
-export type DayKind = "done" | "skipped" | "missed" | "upcoming" | "off";
+/**
+ * Streak freeze (vacation mode): scheduled days on or before habit.pausedUntil
+ * are frozen — they neither break nor extend a streak, never consume the
+ * weekly skip budget, and leave the consistency denominator. A log written
+ * during a freeze still shows in history (the log always wins for display).
+ */
+export function isFrozenOn(habit: Habit, day: LocalDay): boolean {
+  return (
+    habit.pausedUntil !== undefined &&
+    day <= habit.pausedUntil &&
+    (habit.pausedFrom === undefined || day >= habit.pausedFrom)
+  );
+}
+
+export type DayKind = "done" | "skipped" | "missed" | "upcoming" | "off" | "frozen";
 
 export function isScheduledOn(schedule: HabitSchedule, day: LocalDay): boolean {
   if (schedule.type === "daily") return true;
@@ -43,9 +57,11 @@ export function dayKind(
   by: Map<LocalDay, HabitLog>,
   day: LocalDay,
   today: LocalDay,
+  habit?: Habit,
 ): DayKind {
   const status = by.get(day)?.status;
   if (status === "done" || status === "skipped") return status;
+  if (habit && isFrozenOn(habit, day)) return "frozen";
   if (!isScheduledOn(schedule, day)) return "off";
   return day < today ? "missed" : "upcoming";
 }
@@ -87,9 +103,11 @@ export function habitStreaks(
       continue;
     }
     if (status === "skipped") {
+      if (isFrozenOn(habit, d)) continue; // freeze never consumes the skip budget
       if (skipsUpTo(d, by, weekStartsOn) > SKIP_LIMIT_PER_WEEK) break; // 3rd skip in the week
       continue; // protected skip: neither breaks nor extends
     }
+    if (isFrozenOn(habit, d)) continue; // frozen day: protected without a log
     if (d === today) continue; // the day has not ended yet
     break; // missed scheduled day
   }
@@ -106,9 +124,11 @@ export function habitStreaks(
       continue;
     }
     if (status === "skipped") {
+      if (isFrozenOn(habit, d)) continue;
       if (skipsUpTo(d, by, weekStartsOn) > SKIP_LIMIT_PER_WEEK) run = 0; // 3rd skip in the week
       continue; // protected skip keeps the run open without extending it
     }
+    if (isFrozenOn(habit, d)) continue; // frozen day keeps the run open
     if (d === today) continue; // today may still be done — do not reset the run
     run = 0; // missed scheduled day
   }
@@ -129,6 +149,7 @@ export function consistency30(habit: Habit, logs: HabitLog[], today: LocalDay): 
   for (let i = 0; i < 30; i++) {
     const d = addDays(today, -i);
     if (!isScheduledOn(habit.schedule, d)) continue;
+    if (isFrozenOn(habit, d)) continue; // rest days leave the denominator entirely
     const status = by.get(d)?.status;
     if (status === "skipped") continue;
     scheduled++;

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { addDays, toLocalDay } from "./dates";
-import { consistency30, dayKind, habitStreaks, isScheduledOn, logsByDay } from "./streaks";
+import {
+  consistency30,
+  dayKind,
+  habitStreaks,
+  isFrozenOn,
+  isScheduledOn,
+  logsByDay,
+} from "./streaks";
 import type { Habit, HabitLog, HabitSchedule } from "./types";
 
 const T = "2026-01-10"; // a Saturday
@@ -199,5 +206,61 @@ describe("dayKind", () => {
       { ...log("2026-01-05", "skipped"), id: "x2", updatedAt: "2026-01-05T12:00:00.000Z" },
     ]);
     expect(two.get("2026-01-05")?.status).toBe("skipped");
+  });
+});
+
+describe("streak freeze (vacation mode)", () => {
+  it("frozen missed days neither break nor extend the streak", () => {
+    const h = { ...habit(daily), pausedUntil: "2026-01-08", pausedFrom: "2026-01-07" };
+    const logs = [
+      ...many("2026-01-04", "2026-01-06", "done"),
+      log("2026-01-09", "done"),
+      log("2026-01-10", "done"),
+    ];
+    const st = habitStreaks(h, logs, T, 6);
+    expect(st.current).toBe(5); // done 4,5,6 + frozen 7,8 + done 9,10
+  });
+
+  it("freeze never consumes the weekly skip budget", () => {
+    const h = { ...habit(daily), pausedUntil: "2026-01-08", pausedFrom: "2026-01-07" };
+    // two real skips in the week of the 4th..10th plus frozen days: streak survives
+    const logs = [
+      log("2026-01-04", "done"),
+      log("2026-01-05", "skipped"),
+      log("2026-01-06", "skipped"),
+      log("2026-01-09", "done"),
+      log("2026-01-10", "done"),
+    ];
+    const st = habitStreaks(h, logs, T, 0);
+    expect(st.current).toBe(3); // done 4th + protected skips 5,6 + frozen 7,8 + done 9,10
+  });
+
+  it("without freeze the same history breaks (3rd skip rule untouched)", () => {
+    const h = habit(daily);
+    const logs = [
+      log("2026-01-04", "done"),
+      log("2026-01-05", "skipped"),
+      log("2026-01-06", "skipped"),
+      log("2026-01-07", "skipped"),
+      log("2026-01-09", "done"),
+      log("2026-01-10", "done"),
+    ];
+    expect(habitStreaks(h, logs, T, 0).current).toBe(2);
+  });
+
+  it("frozen days leave the consistency denominator", () => {
+    const h = { ...habit(daily), pausedUntil: T, pausedFrom: addDays(T, -9) };
+    const logs = many(addDays(T, -29), addDays(T, -10), "done");
+    // last 10 days frozen, earlier 20 done -> consistency 1 over the 20 counted days
+    expect(consistency30(h, logs, T)).toBe(1);
+  });
+
+  it("dayKind reports frozen for logless frozen days and logs still win", () => {
+    const h = { ...habit(daily), pausedUntil: T, pausedFrom: addDays(T, -9) };
+    const by = logsByDay([log("2026-01-09", "done")]);
+    expect(dayKind(daily, by, "2026-01-08", T, h)).toBe("frozen");
+    expect(dayKind(daily, by, "2026-01-09", T, h)).toBe("done");
+    expect(isFrozenOn(h, "2026-01-08")).toBe(true);
+    expect(isFrozenOn(habit(daily), "2026-01-08")).toBe(false);
   });
 });

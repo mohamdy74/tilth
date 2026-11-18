@@ -1,5 +1,6 @@
 import { daysBetween } from "./dates";
 import { totalsFromLedger } from "./rewards";
+import { COINS_PER_XP } from "./rewardsConfig";
 import { consistency30, habitStreaks, isScheduledOn, logsByDay } from "./streaks";
 import type {
   AchievementUnlock,
@@ -52,7 +53,13 @@ export type AchievementId =
   | "firstBackup"
   | "consistentMonth"
   | "zenThree"
-  | "focusTargetWeek";
+  | "focusTargetWeek"
+  | "marathonDay"
+  | "nightOwlTen"
+  | "shopRegular"
+  | "weekWarrior"
+  | "coinHoarder"
+  | "habitCentury";
 
 /** Everything the pure predicates need; assembled by the store (progressState). */
 export interface AchievementState {
@@ -72,6 +79,8 @@ export interface Achievement {
   id: AchievementId;
   /** lucide icon name, mapped in src/components/app/achievementIcons.ts. */
   icon: string;
+  /** Badge tier shown in the gallery ring (optional; defaults to bronze look). */
+  tier?: "bronze" | "silver" | "gold";
   predicate: (s: AchievementState) => boolean;
   /** current/target where a number is meaningful; null otherwise. */
   progress: (s: AchievementState) => { current: number; target: number } | null;
@@ -233,6 +242,46 @@ function purchaseCount(s: AchievementState): number {
   return liveLedgerEntries(s).filter((e) => e.sourceType === "shop" && e.coins < 0).length;
 }
 
+/** Most completed work minutes stored on a single localDay. */
+function bestFocusDayMinutes(s: AchievementState): number {
+  const byDay = new Map<string, number>();
+  for (const x of completedWorkSessions(s)) {
+    byDay.set(x.localDay, (byDay.get(x.localDay) ?? 0) + x.plannedMinutes);
+  }
+  let best = 0;
+  for (const min of byDay.values()) if (min > best) best = min;
+  return best;
+}
+
+/** Validated tasks completed at or after 21:00 wall clock. */
+function nightOwlCount(s: AchievementState): number {
+  const tasks = new Map(s.tasks.map((x) => [x.id, x] as const));
+  return validatedTaskEntries(s).filter((e) => {
+    const task = tasks.get(e.sourceId);
+    return task?.completedAt !== undefined && wallHour(task.completedAt, s.timeZone) >= 21;
+  }).length;
+}
+
+/** Longest run of consecutive days carrying at least one validated habit done-log. */
+function bestHabitDayRun(s: AchievementState): number {
+  const days = [...new Set(validatedHabitEntries(s).map((e) => e.localDay))].sort();
+  let best = 0;
+  let run = 0;
+  let prev: string | null = null;
+  for (const d of days) {
+    run = prev !== null && daysBetween(prev, d) === 1 ? run + 1 : 1;
+    if (run > best) best = run;
+    prev = d;
+  }
+  return best;
+}
+
+/** Coins ever earned (positive XP / COINS_PER_XP, floored) — spending never reduces it. */
+function coinsEarned(s: AchievementState): number {
+  const xp = liveLedgerEntries(s).reduce((sum, e) => sum + Math.max(0, e.xp), 0);
+  return Math.floor(xp / COINS_PER_XP);
+}
+
 export const ACHIEVEMENTS: Achievement[] = [
   // Validated data: live "task" ledger entries.
   {
@@ -250,12 +299,14 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     id: "tasksFifty",
+    tier: "silver",
     icon: "Layers",
     predicate: (s) => validatedTaskCount(s) >= 50,
     progress: (s) => ({ current: validatedTaskCount(s), target: 50 }),
   },
   {
     id: "tasksTwoHundred",
+    tier: "gold",
     icon: "BookOpen",
     predicate: (s) => validatedTaskCount(s) >= 200,
     progress: (s) => ({ current: validatedTaskCount(s), target: 200 }),
@@ -276,12 +327,14 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     id: "streakThirty",
+    tier: "silver",
     icon: "Mountain",
     predicate: (s) => bestStreak(s) >= 30,
     progress: (s) => ({ current: bestStreak(s), target: 30 }),
   },
   {
     id: "streakHundred",
+    tier: "gold",
     icon: "Gem",
     predicate: (s) => bestStreak(s) >= 100,
     progress: (s) => ({ current: bestStreak(s), target: 100 }),
@@ -295,12 +348,14 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     id: "focusTenHours",
+    tier: "silver",
     icon: "Hourglass",
     predicate: (s) => focusMinutes(s) >= 600,
     progress: (s) => ({ current: focusMinutes(s), target: 600 }),
   },
   {
     id: "focusFiftyHours",
+    tier: "gold",
     icon: "Clock",
     predicate: (s) => focusMinutes(s) >= 3000,
     progress: (s) => ({ current: focusMinutes(s), target: 3000 }),
@@ -338,6 +393,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     id: "levelTen",
+    tier: "gold",
     icon: "Trophy",
     predicate: (s) => totalsFromLedger(s.xpLedger).level >= 10,
     progress: (s) => ({ current: totalsFromLedger(s.xpLedger).level, target: 10 }),
@@ -382,6 +438,54 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Target",
     predicate: (s) => bestTargetRun(s) >= 7,
     progress: (s) => ({ current: bestTargetRun(s), target: 7 }),
+  },
+  // Validated data: completed work minutes stored on one localDay.
+  {
+    id: "marathonDay",
+    icon: "Mountain",
+    tier: "silver",
+    predicate: (s) => bestFocusDayMinutes(s) >= 120,
+    progress: (s) => ({ current: bestFocusDayMinutes(s), target: 120 }),
+  },
+  // Validated data: live "task" entries whose task completedAt hour >= 21.
+  {
+    id: "nightOwlTen",
+    icon: "MoonStar",
+    tier: "bronze",
+    predicate: (s) => nightOwlCount(s) >= 10,
+    progress: (s) => ({ current: nightOwlCount(s), target: 10 }),
+  },
+  // Validated data: live "shop" ledger entries (coins actually spent).
+  {
+    id: "shopRegular",
+    icon: "ShoppingBag",
+    tier: "bronze",
+    predicate: (s) => purchaseCount(s) >= 5,
+    progress: (s) => ({ current: purchaseCount(s), target: 5 }),
+  },
+  // Validated data: consecutive days carrying a live "habit" entry.
+  {
+    id: "weekWarrior",
+    icon: "Swords",
+    tier: "silver",
+    predicate: (s) => bestHabitDayRun(s) >= 7,
+    progress: (s) => ({ current: bestHabitDayRun(s), target: 7 }),
+  },
+  // Validated data: coins derived from positive ledger XP (never from spending).
+  {
+    id: "coinHoarder",
+    icon: "PiggyBank",
+    tier: "silver",
+    predicate: (s) => coinsEarned(s) >= 500,
+    progress: (s) => ({ current: coinsEarned(s), target: 500 }),
+  },
+  // Validated data: live "habit" ledger entries (once per habit per day).
+  {
+    id: "habitCentury",
+    icon: "Medal",
+    tier: "gold",
+    predicate: (s) => validatedHabitEntries(s).length >= 100,
+    progress: (s) => ({ current: validatedHabitEntries(s).length, target: 100 }),
   },
 ];
 

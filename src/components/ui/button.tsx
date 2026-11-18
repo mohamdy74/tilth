@@ -11,12 +11,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground font-semibold hover:bg-primary/90",
+        default:
+          "bg-primary text-primary-foreground font-semibold shadow-soft hover:bg-primary/90 hover:shadow-lift hover:-translate-y-px active:translate-y-0",
         destructive:
           "bg-destructive text-destructive-foreground font-semibold hover:bg-destructive/90",
         // border-border (not input) + accent/40 hover — the exact language the routes
         // already shipped; the old full-accent hover fill read as a "selected" state.
-        outline: "border border-border bg-background text-foreground hover:bg-accent/40",
+        outline:
+          "border border-border bg-background text-foreground hover:bg-accent/40 hover:border-primary/40 active:bg-accent/60",
         secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",

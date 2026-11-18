@@ -8,6 +8,9 @@ import {
   insightsReport,
   taskCompletionsByDay,
   windowDays,
+  monthOverMonth,
+  weekdayFocus,
+  weeklyReview,
 } from "./insights";
 import type { FocusSession, Habit, HabitLog, Task } from "./types";
 
@@ -374,5 +377,131 @@ describe("insights observations", () => {
       "focusWeekday",
       "skippedHabit",
     ]);
+  });
+});
+
+describe("weeklyReview", () => {
+  const base = {
+    today: "2026-11-18",
+    weekStartsOn: 1,
+    dayStartHour: 0,
+    timeZone: "UTC",
+    habits: [],
+    habitLogs: [],
+  };
+  const session = (day: string, minutes: number) => ({
+    id: "s" + day,
+    createdAt: day + "T09:00:00Z",
+    updatedAt: day + "T09:00:00Z",
+    mode: "pomodoro" as const,
+    plannedMinutes: minutes,
+    startedAt: day + "T09:00:00Z",
+    endsAt: day + "T09:25:00Z",
+    endedAt: day + "T09:25:00Z",
+    completed: true,
+    distractions: [],
+    localDay: day,
+  });
+
+  it("buckets this week vs previous week on stored days", () => {
+    const r = weeklyReview({
+      ...base,
+      tasks: [],
+      focusSessions: [session("2026-11-16", 25), session("2026-11-10", 50)],
+      xpLedger: [],
+    });
+    expect(r.weekStart).toBe("2026-11-16");
+    expect(r.current.focusMinutes).toBe(25);
+    expect(r.previous.focusMinutes).toBe(50);
+  });
+
+  it("carry-over lists open tasks due by week end, sorted by due date", () => {
+    const mk = (id: string, due: string) => ({
+      id,
+      createdAt: "2026-11-01T00:00:00Z",
+      updatedAt: "2026-11-01T00:00:00Z",
+      title: id,
+      priority: "medium" as const,
+      tags: [],
+      subtasks: [],
+      status: "todo" as const,
+      kanbanOrder: 0,
+      dueDate: due,
+    });
+    const r = weeklyReview({
+      ...base,
+      tasks: [
+        mk("late", "2026-11-20"),
+        mk("over", "2026-11-10"),
+        { ...mk("done", "2026-11-10"), status: "done" },
+      ],
+      focusSessions: [],
+      xpLedger: [],
+    });
+    expect(r.carryOver.map((c) => c.id)).toEqual(["over", "late"]);
+  });
+});
+
+describe("weekdayFocus", () => {
+  it("averages completed work minutes per weekday inside the window", () => {
+    const mk = (day: string, minutes: number, completed = true) => ({
+      id: day + minutes,
+      createdAt: day + "T09:00:00Z",
+      updatedAt: day + "T09:00:00Z",
+      mode: "pomodoro" as const,
+      plannedMinutes: minutes,
+      startedAt: day + "T09:00:00Z",
+      endsAt: day + "T09:25:00Z",
+      endedAt: day + "T09:25:00Z",
+      completed,
+      distractions: [],
+      localDay: day,
+    });
+    const out = weekdayFocus(
+      [mk("2026-11-16", 20), mk("2026-11-16", 40), mk("2026-11-17", 30, false)],
+      "2026-11-18",
+    );
+    const monday = out.find((w) => w.weekday === 1)!;
+    expect(monday.sessions).toBe(2);
+    expect(monday.avgMinutes).toBe(30);
+    const tuesday = out.find((w) => w.weekday === 2)!;
+    expect(tuesday.sessions).toBe(0);
+  });
+});
+
+describe("monthOverMonth", () => {
+  const mk = (day: string) => ({
+    id: day,
+    createdAt: day + "T09:00:00Z",
+    updatedAt: day + "T09:00:00Z",
+    mode: "pomodoro" as const,
+    plannedMinutes: 25,
+    startedAt: day + "T09:00:00Z",
+    endsAt: day + "T09:25:00Z",
+    endedAt: day + "T09:25:00Z",
+    completed: true,
+    distractions: [],
+    localDay: day,
+  });
+  const days = (from: string, n: number) => {
+    const out = [];
+    const d = new Date(from + "T00:00:00Z");
+    for (let i = 0; i < n; i++) {
+      out.push(mk(d.toISOString().slice(0, 10)));
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return out;
+  };
+
+  it("returns null below the 14-active-day floor in either month", () => {
+    expect(monthOverMonth(days("2026-11-01", 10), "2026-11-18")).toBeNull();
+  });
+
+  it("compares months once both carry enough active days", () => {
+    const r = monthOverMonth([...days("2026-10-01", 14), ...days("2026-11-01", 14)], "2026-11-18");
+    expect(r).not.toBeNull();
+    expect(r!.thisMinutes).toBe(14 * 25);
+    expect(r!.lastMinutes).toBe(14 * 25);
+    expect(r!.deltaPct).toBe(0);
   });
 });

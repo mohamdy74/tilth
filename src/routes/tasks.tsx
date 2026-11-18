@@ -6,6 +6,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Bookmark,
+  BookmarkPlus,
   KanbanSquare,
   List,
   ListChecks,
@@ -15,7 +17,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useRef, useState, type ReactNode } from "react";
 import { usePrefs } from "@/components/app/preferences";
 import { Segmented } from "@/components/app/Segmented";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -26,7 +28,9 @@ import { toast } from "sonner";
 import { weekdayOf } from "@/lib/dates";
 import { formatDate, formatNumber, type Locale } from "@/lib/i18n";
 import { parseQuickAdd } from "@/lib/quickAdd";
-import { tasks as taskApi, todayLocal, useStore } from "@/lib/store";
+import { sortTasks } from "@/lib/taskSort";
+import type { TaskSort } from "@/lib/types";
+import { tasks as taskApi, views as viewsApi, todayLocal, useStore } from "@/lib/store";
 import type { Priority, RecurrenceRule, Task, TaskStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/tasks")({
@@ -61,7 +65,12 @@ function TasksPage() {
   const allTasks = useStore((s) => s.tasks);
   const [view, setView] = useState<ViewKey>("today");
   const [mode, setMode] = useState<Mode>("list");
+  const [sort, setSort] = useState<TaskSort>("due");
+  const [savingView, setSavingView] = useState(false);
+  const [viewName, setViewName] = useState("");
+  const savedViews = useStore((st) => st.savedViews);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
   const [tagFilter, setTagFilter] = useState("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -122,7 +131,7 @@ function TasksPage() {
     mode: "list" as Mode,
     toggleDone: (_t: Task) => {},
   });
-  useEffect(() => setCursor(0), [view, search, priorityFilter, tagFilter, mode]);
+  useEffect(() => setCursor(0), [view, search, priorityFilter, tagFilter, mode, sort]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -159,7 +168,7 @@ function TasksPage() {
   const live = allTasks.filter((x) => !x.deletedAt);
   const allTags = [...new Set(live.flatMap((x) => x.tags))].sort();
 
-  const q = search.trim().toLowerCase();
+  const q = deferredSearch.trim().toLowerCase();
   const filtered = live.filter(
     (x) =>
       (priorityFilter === "all" || x.priority === priorityFilter) &&
@@ -185,14 +194,16 @@ function TasksPage() {
     else if (x.dueDate === today) byView.today.push(x);
     else byView.upcoming.push(x);
   }
-  const byOrder = (a: Task, b: Task) => a.kanbanOrder - b.kanbanOrder;
-  const byDue = (a: Task, b: Task) =>
-    (a.dueDate ?? "").localeCompare(b.dueDate ?? "") || byOrder(a, b);
-  byView.today.sort(byOrder);
-  byView.inbox.sort(byOrder);
-  byView.upcoming.sort(byDue);
-  byView.overdue.sort(byDue);
-  byView.completed.sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
+  byView.today = sortTasks(byView.today, sort);
+  byView.inbox = sortTasks(byView.inbox, sort);
+  byView.upcoming = sortTasks(byView.upcoming, sort);
+  byView.overdue = sortTasks(byView.overdue, sort);
+  byView.completed =
+    sort === "due"
+      ? [...byView.completed].sort((a, b) =>
+          (b.completedAt ?? "").localeCompare(a.completedAt ?? ""),
+        )
+      : sortTasks(byView.completed, sort);
 
   const showToast = (msg: string, undo?: () => void) =>
     toast(msg, undo ? { action: { label: t.tasks.toasts.undo, onClick: undo } } : {});
@@ -252,7 +263,36 @@ function TasksPage() {
 
   const visible = byView[view];
   kbRef.current = { visible, mode, cursor, toggleDone };
-  const hasFilters = search !== "" || priorityFilter !== "all" || tagFilter !== "all";
+  const hasFilters =
+    search !== "" || priorityFilter !== "all" || tagFilter !== "all" || sort !== "due";
+  const liveViews = savedViews.filter((v) => !v.deletedAt);
+
+  const applyView = (v: (typeof liveViews)[number]) => {
+    setView(v.filters.bucket);
+    setPriorityFilter(v.filters.priority);
+    setTagFilter(v.filters.tag);
+    setSearch(v.filters.search);
+    setSort(v.filters.sort ?? "due");
+    setMode(v.filters.mode ?? "list");
+    setExpandedId(null);
+    toast(t.views.applied);
+  };
+
+  const saveView = () => {
+    const name = viewName.trim();
+    if (!name) return;
+    viewsApi.add(name, {
+      bucket: view,
+      priority: priorityFilter,
+      tag: tagFilter,
+      search,
+      sort,
+      mode,
+    });
+    setSavingView(false);
+    setViewName("");
+    toast(t.views.saved);
+  };
 
   return (
     <section>
@@ -283,52 +323,37 @@ function TasksPage() {
       </form>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <div
-          className="segmented m-0 max-w-full overflow-x-auto"
-          role="radiogroup"
-          aria-label={t.nav.tasks}
-        >
-          {VIEWS.map((v) => (
-            <button
-              key={v}
-              type="button"
-              role="radio"
-              aria-checked={view === v}
-              onClick={() => {
-                setView(v);
-                setExpandedId(null);
-              }}
-              className="segment whitespace-nowrap"
-            >
-              {t.tasks.view[v]}
-              <span className="ms-1 text-xs font-normal text-muted-foreground">
-                {formatNumber(locale, byView[v].length)}
-              </span>
-            </button>
-          ))}
-        </div>
-        <div className="segmented m-0" role="radiogroup" aria-label={t.tasks.display}>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={mode === "list"}
-            onClick={() => setMode("list")}
-            className="segment"
-          >
-            <List className="size-4" aria-hidden />
-            {t.tasks.mode.list}
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={mode === "board"}
-            onClick={() => setMode("board")}
-            className="segment"
-          >
-            <KanbanSquare className="size-4" aria-hidden />
-            {t.tasks.mode.board}
-          </button>
-        </div>
+        <Segmented
+          className="max-w-full overflow-x-auto"
+          label={t.nav.tasks}
+          value={view}
+          onChange={(v) => {
+            setView(v as ViewKey);
+            setExpandedId(null);
+          }}
+          options={VIEWS.map((v) => ({
+            value: v,
+            label: t.tasks.view[v],
+            badge: formatNumber(locale, byView[v].length),
+          }))}
+        />
+        <Segmented
+          label={t.tasks.display}
+          value={mode}
+          onChange={(v) => setMode(v === "board" ? "board" : "list")}
+          options={[
+            {
+              value: "list",
+              label: t.tasks.mode.list,
+              icon: <List className="size-4" aria-hidden />,
+            },
+            {
+              value: "board",
+              label: t.tasks.mode.board,
+              icon: <KanbanSquare className="size-4" aria-hidden />,
+            },
+          ]}
+        />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -371,6 +396,18 @@ function TasksPage() {
             </option>
           ))}
         </select>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as TaskSort)}
+          aria-label={t.tasks.sortLabel}
+          className="h-8 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+        >
+          {(["due", "priority", "created"] as TaskSort[]).map((k) => (
+            <option key={k} value={k}>
+              {t.tasks.sortLabel + ": " + t.tasks.sort[k]}
+            </option>
+          ))}
+        </select>
         {hasFilters && (
           <button
             type="button"
@@ -378,6 +415,7 @@ function TasksPage() {
               setSearch("");
               setPriorityFilter("all");
               setTagFilter("all");
+              setSort("due");
             }}
             className="text-sm text-primary underline-offset-2 hover:underline"
           >
@@ -385,6 +423,78 @@ function TasksPage() {
           </button>
         )}
       </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {liveViews.map((v) => (
+          <span key={v.id} className="chip">
+            <button
+              type="button"
+              onClick={() => applyView(v)}
+              className="inline-flex items-center gap-1 font-medium text-foreground hover:text-primary"
+            >
+              <Bookmark className="size-3" aria-hidden />
+              {v.name}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                viewsApi.remove(v.id);
+                toast(t.views.delete, {
+                  action: { label: t.tasks.toasts.undo, onClick: () => viewsApi.restore(v.id) },
+                });
+              }}
+              aria-label={t.views.delete + ": " + v.name}
+              className="hit-extend rounded p-0.5 text-muted-foreground hover:text-destructive"
+            >
+              <X className="size-3" aria-hidden />
+            </button>
+          </span>
+        ))}
+        <button
+          type="button"
+          onClick={() => setSavingView(true)}
+          className="chip border-dashed text-primary hover:bg-accent/40"
+        >
+          <BookmarkPlus className="size-3" aria-hidden />
+          {t.views.save}
+        </button>
+      </div>
+
+      {savingView && (
+        <Modal title={t.views.save} onClose={() => setSavingView(false)}>
+          <h2 className="font-display text-lg font-semibold">{t.views.save}</h2>
+          <label className="mt-3 block text-xs text-muted-foreground" htmlFor="view-name">
+            {t.views.nameLabel}
+          </label>
+          <input
+            id="view-name"
+            value={viewName}
+            onChange={(e) => setViewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                saveView();
+              }
+            }}
+            placeholder={t.views.namePlaceholder}
+            className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none"
+            autoFocus
+          />
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setSavingView(false)} className={OUTLINE_BTN}>
+              {t.tasks.cancel}
+            </button>
+            <button
+              type="button"
+              onClick={saveView}
+              disabled={!viewName.trim()}
+              className={PRIMARY_BTN}
+            >
+              {t.views.save}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {visible.length === 0 ? (
         <EmptyState view={view} onAdd={() => inputRef.current?.focus()} />
@@ -441,14 +551,14 @@ function TasksPage() {
 function TasksSkeleton() {
   return (
     <section aria-busy="true">
-      <div className="mb-2 h-4 w-16 animate-pulse rounded bg-accent/30" />
-      <div className="h-9 w-56 animate-pulse rounded bg-accent/30" />
-      <div className="mt-6 h-12 animate-pulse rounded-xl bg-accent/30" />
-      <div className="mt-4 h-10 w-full animate-pulse rounded-lg bg-accent/30" />
+      <div className="mb-2 h-4 w-16 skeleton" />
+      <div className="h-9 w-56 skeleton" />
+      <div className="mt-6 h-12 skeleton rounded-xl" />
+      <div className="mt-4 h-10 w-full skeleton rounded-lg" />
       <div className="mt-6 space-y-2">
-        <div className="h-16 animate-pulse rounded-xl bg-accent/30" />
-        <div className="h-16 animate-pulse rounded-xl bg-accent/30" />
-        <div className="h-16 animate-pulse rounded-xl bg-accent/30" />
+        <div className="h-16 skeleton rounded-xl" />
+        <div className="h-16 skeleton rounded-xl" />
+        <div className="h-16 skeleton rounded-xl" />
       </div>
     </section>
   );
@@ -760,7 +870,7 @@ function BoardCard({
               </span>
             )}
             {task.tags.map((g) => (
-              <span key={g} className="rounded bg-accent/40 px-1 py-0.5">
+              <span key={g} className="chip">
                 {"#" + g}
               </span>
             ))}
@@ -774,7 +884,7 @@ function BoardCard({
             onClick={() => onMove(-1)}
             disabled={!canPrev}
             aria-label={t.tasks.movePrev}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-30"
+            className="hit-extend rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-30"
           >
             <ChevronLeft className="size-4 rtl-flip" aria-hidden />
           </button>
@@ -783,7 +893,7 @@ function BoardCard({
             onClick={() => onMove(1)}
             disabled={!canNext}
             aria-label={t.tasks.moveNext}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-30"
+            className="hit-extend rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-30"
           >
             <ChevronRight className="size-4 rtl-flip" aria-hidden />
           </button>
@@ -792,7 +902,7 @@ function BoardCard({
           type="button"
           onClick={onDelete}
           aria-label={t.tasks.delete}
-          className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-destructive"
+          className="hit-extend rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-destructive"
         >
           <Trash2 className="size-4" aria-hidden />
         </button>
@@ -986,7 +1096,7 @@ function TaskEditor({
                   onClick={() => subMove(s.id, -1)}
                   disabled={i === 0}
                   aria-label={t.tasks.moveUp}
-                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-30"
+                  className="hit-extend rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-30"
                 >
                   <ArrowUp className="size-3.5" aria-hidden />
                 </button>
@@ -995,7 +1105,7 @@ function TaskEditor({
                   onClick={() => subMove(s.id, 1)}
                   disabled={i === task.subtasks.length - 1}
                   aria-label={t.tasks.moveDown}
-                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-30"
+                  className="hit-extend rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-30"
                 >
                   <ArrowDown className="size-3.5" aria-hidden />
                 </button>
@@ -1003,7 +1113,7 @@ function TaskEditor({
                   type="button"
                   onClick={() => subRemove(s.id)}
                   aria-label={t.tasks.delete}
-                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-destructive"
+                  className="hit-extend rounded p-1 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-destructive"
                 >
                   <X className="size-3.5" aria-hidden />
                 </button>
@@ -1028,15 +1138,17 @@ function TaskEditor({
               type="button"
               onClick={() => subAdd(subDraft)}
               aria-label={t.tasks.add}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/40"
+              className="hit-extend rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/40"
             >
               <Plus className="size-4" aria-hidden />
             </button>
           </div>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
+          {/* Subtask edits persist immediately, so this closes the editor —
+              it does not discard them. "Cancel" would promise a rollback. */}
           <button type="button" onClick={onCollapse} className={OUTLINE_BTN}>
-            {t.tasks.cancel}
+            {t.tasks.close}
           </button>
           <button type="button" onClick={save} className={PRIMARY_BTN}>
             {t.tasks.save}
@@ -1066,13 +1178,13 @@ function CheckButton({
       aria-label={label}
       onClick={onToggle}
       className={
-        "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border transition-colors " +
+        "hit-extend mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border transition-colors " +
         (checked
           ? "border-primary bg-primary text-primary-foreground"
           : "border-border text-transparent hover:border-primary")
       }
     >
-      <Check className="size-3" aria-hidden />
+      <Check className={checked ? "animate-check size-3" : "size-3"} aria-hidden />
     </button>
   );
 }

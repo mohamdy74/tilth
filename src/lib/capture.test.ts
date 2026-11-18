@@ -17,14 +17,14 @@ describe("capture", () => {
 
   it("note prefix (en and ar)", () => {
     expect(captureFromText("note: buy milk today", today).kind).toBe("note");
-    expect(captureFromText("Ù…Ù„Ø§Ø­Ø¸Ø©: Ø§Ø´ØªØ±Ù Ø§Ù„Ù„Ø¨Ù†", today).kind).toBe("note");
+    expect(captureFromText("ملاحظة: اشترِ اللبن", today).kind).toBe("note");
   });
 
   it("task prefix (en and ar)", () => {
     const t = captureFromText("task: reply to emails", today);
     expect(t.kind).toBe("task");
     expect(t.title).toBe("reply to emails");
-    const ta = captureFromText("Ù…Ù‡Ù…Ø©: Ø±Ø¯ Ø¹Ù„Ù‰ Ø§Ù„Ø±Ø³Ø§Ø¦Ù„", today);
+    const ta = captureFromText("مهمة: رد على الرسائل", today);
     expect(ta.kind).toBe("task");
   });
 
@@ -62,5 +62,39 @@ describe("capture", () => {
     const t = captureFromText("!high", today);
     expect(t.kind).toBe("task");
     expect(t.title).toBe("!high");
+  });
+});
+
+describe("capture beyond tasks", () => {
+  it("habit prefix creates a daily habit intent (en and ar)", () => {
+    const h = captureFromText("habit: read 20 pages #reading", today);
+    expect(h.kind).toBe("habit");
+    expect(h.title).toBe("read 20 pages");
+    expect(h.tags).toEqual(["reading"]);
+    const ha = captureFromText("عادة: قراءة يومية", today);
+    expect(ha.kind).toBe("habit");
+    expect(ha.title).toBe("قراءة يومية");
+  });
+
+  it("focus prefix parses minutes, ascii and arabic-indic digits", () => {
+    const f = captureFromText("focus 50", today);
+    expect(f.kind).toBe("focus");
+    expect(f.minutes).toBe(50);
+    const fa = captureFromText("ركز ٥٠", today);
+    expect(fa.kind).toBe("focus");
+    expect(fa.minutes).toBe(50);
+    const bare = captureFromText("تركيز", today);
+    expect(bare.kind).toBe("focus");
+    expect(bare.minutes).toBe(25);
+  });
+
+  it("focus minutes clamp to 1..180", () => {
+    expect(captureFromText("focus 999", today).minutes).toBe(180);
+    expect(captureFromText("focus 0", today).minutes).toBe(1);
+  });
+
+  it("forced prefixes win over the length heuristic", () => {
+    const long = "task: " + "x".repeat(300);
+    expect(captureFromText(long, today).kind).toBe("task");
   });
 });

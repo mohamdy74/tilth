@@ -172,3 +172,60 @@ describe("plan", () => {
     expect(p.scheduledMinutes).toBe(25);
   });
 });
+
+describe("time-blocking (blockStart)", () => {
+  const base = {
+    today,
+    habits: [],
+    habitLogs: [],
+    focusTargetMinutes: 0,
+    dayStartHour: 0,
+  };
+
+  it("pinned task lands at its requested minute", () => {
+    const p = buildDayPlan({
+      ...base,
+      tasks: [mkTask({ id: "a", dueDate: today, blockStart: 14 * 60 })],
+    });
+    expect(p.blocks[0]!.startMinute).toBe(14 * 60);
+  });
+
+  it("flowing tasks skip occupied pinned intervals", () => {
+    const p = buildDayPlan({
+      ...base,
+      tasks: [
+        mkTask({ id: "a", dueDate: today, priority: "high", blockStart: 9 * 60 }),
+        mkTask({ id: "b", dueDate: today, priority: "low" }),
+      ],
+    });
+    const a = p.blocks.find((b) => b.sourceId === "a")!;
+    const b = p.blocks.find((b) => b.sourceId === "b")!;
+    expect(a.startMinute).toBe(9 * 60);
+    expect(b.startMinute).toBeGreaterThanOrEqual(a.startMinute + a.minutes);
+  });
+
+  it("overlapping pins shift to the next free slot, never overlap", () => {
+    const p = buildDayPlan({
+      ...base,
+      tasks: [
+        mkTask({ id: "a", dueDate: today, blockStart: 10 * 60 }),
+        mkTask({ id: "b", dueDate: today, blockStart: 10 * 60 }),
+      ],
+    });
+    const [x, y] = [...p.blocks].sort((m, n) => m.startMinute - n.startMinute);
+    expect(y!.startMinute).toBeGreaterThanOrEqual(x!.startMinute + x!.minutes);
+  });
+
+  it("blocks stay sorted by start minute", () => {
+    const p = buildDayPlan({
+      ...base,
+      tasks: [
+        mkTask({ id: "a", dueDate: today, blockStart: 15 * 60 }),
+        mkTask({ id: "b", dueDate: today }),
+      ],
+    });
+    for (let i = 1; i < p.blocks.length; i++) {
+      expect(p.blocks[i]!.startMinute).toBeGreaterThanOrEqual(p.blocks[i - 1]!.startMinute);
+    }
+  });
+});

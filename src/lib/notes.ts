@@ -34,6 +34,10 @@ const esc = (s: string): string =>
 const inline = (s: string): string =>
   esc(s)
     .replace(
+      /\[\[([^[\]]+)\]\]/g,
+      '<button type="button" class="note-link" data-task-title="$1">$1</button>',
+    )
+    .replace(
       /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
     )

@@ -151,6 +151,9 @@ function DashboardPage() {
         context={
           <>
             <span className="font-medium text-foreground">{greetingWord}</span>
+            <span>
+              {formatDate(locale, new Date(), { weekday: "long", day: "numeric", month: "long" })}
+            </span>
             <span>{digestLine}</span>
           </>
         }
@@ -168,7 +171,7 @@ function DashboardPage() {
           </Link>
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="stagger mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {cards.priorities && (
             <PrioritiesCard
               items={priorities.slice(0, MAX_ROWS)}
@@ -246,9 +249,11 @@ function Card({
   children: ReactNode;
 }) {
   return (
-    <div className="panel flex h-full flex-col p-4">
+    <div className="panel panel-hover flex h-full flex-col p-4">
       <div className="mb-3 flex items-center gap-2 text-muted-foreground">
-        <span className="text-primary">{icon}</span>
+        <span className="grid size-7 place-items-center rounded-md bg-accent/50 text-primary">
+          {icon}
+        </span>
         <h2 className="text-sm font-semibold">{title}</h2>
       </div>
       <div className="flex-1">{children}</div>
@@ -311,7 +316,7 @@ function PrioritiesCard({
                 onClick={() => onComplete(x.id)}
                 aria-label={t.tasks.markDone}
                 className={
-                  "shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:text-primary "
+                  "hit-extend shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:text-primary "
                 }
               >
                 <CheckCircle2 className="size-5" aria-hidden />
@@ -343,40 +348,55 @@ function ProgressCard({ progress }: { progress: DailyProgress }) {
           </>
         ) : (
           <>
-            <svg
-              viewBox="0 0 100 100"
-              className="size-28"
-              role="img"
-              aria-label={t.settings.cards.progress}
-            >
-              <circle
-                cx="50"
-                cy="50"
-                r={RING_R}
-                fill="none"
-                strokeWidth="8"
-                className="stroke-accent/40"
-              />
-              <circle
-                cx="50"
-                cy="50"
-                r={RING_R}
-                fill="none"
-                strokeWidth="8"
-                strokeLinecap="round"
-                className="stroke-primary transition-all"
-                strokeDasharray={RING_C}
-                strokeDashoffset={RING_C * (1 - ratio)}
-                transform="rotate(-90 50 50)"
-              />
-            </svg>
+            <div className="relative">
+              <svg
+                viewBox="0 0 100 100"
+                className="size-32"
+                role="img"
+                aria-label={
+                  t.settings.cards.progress +
+                  ": " +
+                  formatNumber(locale, Math.round(ratio * 100)) +
+                  "%"
+                }
+              >
+                <defs>
+                  <linearGradient id="dash-ring" x1="0" y1="0" x2="1" y2="1">
+                    <stop
+                      offset="0%"
+                      stopColor="color-mix(in oklab, var(--color-primary) 65%, var(--color-info))"
+                    />
+                    <stop offset="100%" stopColor="var(--color-primary)" />
+                  </linearGradient>
+                </defs>
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={RING_R}
+                  fill="none"
+                  strokeWidth="7"
+                  className="stroke-accent/40"
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={RING_R}
+                  fill="none"
+                  strokeWidth="7"
+                  strokeLinecap="round"
+                  stroke="url(#dash-ring)"
+                  strokeDasharray={RING_C}
+                  strokeDashoffset={RING_C * (1 - ratio)}
+                  transform="rotate(-90 50 50)"
+                  style={{ transition: "stroke-dashoffset 700ms var(--ease-out)" }}
+                />
+              </svg>
+              <p className="absolute inset-0 grid place-items-center font-display text-2xl font-semibold tabular-nums">
+                {formatNumber(locale, Math.round(ratio * 100)) + "%"}
+              </p>
+            </div>
             <p className="text-sm text-muted-foreground tabular-nums">
-              {formatNumber(locale, progress.done) +
-                " / " +
-                formatNumber(locale, progress.total) +
-                " · " +
-                formatNumber(locale, Math.round(ratio * 100)) +
-                "%"}
+              {formatNumber(locale, progress.done) + " / " + formatNumber(locale, progress.total)}
             </p>
           </>
         )}
@@ -504,11 +524,8 @@ function FocusCard({
             {" / " + formatNumber(locale, target) + " " + t.focus.minutes}
           </span>
         </p>
-        <div className="h-2 overflow-hidden rounded-full bg-accent/40">
-          <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: pct + "%" }}
-          />
+        <div className="meter">
+          <div className="meter-fill" style={{ width: pct + "%" }} />
         </div>
       </div>
     </Card>
@@ -534,11 +551,8 @@ function LevelCard() {
         <p className="font-display text-4xl font-semibold tabular-nums">
           {formatNumber(locale, totals.level)}
         </p>
-        <div className="h-2 overflow-hidden rounded-full bg-accent/40">
-          <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: pct + "%" }}
-          />
+        <div className="meter">
+          <div className="meter-fill" style={{ width: pct + "%" }} />
         </div>
         <p className="text-xs text-muted-foreground tabular-nums">
           {formatNumber(locale, totals.xpIntoLevel) +
@@ -547,11 +561,8 @@ function LevelCard() {
             " " +
             t.dash.xpUnit}
         </p>
-        <div className="h-1.5 overflow-hidden rounded-full bg-accent/40" aria-hidden>
-          <div
-            className="h-full rounded-full bg-primary/70 transition-all"
-            style={{ width: todayPct + "%" }}
-          />
+        <div className="meter h-1.5" aria-hidden>
+          <div className="meter-fill opacity-70" style={{ width: todayPct + "%" }} />
         </div>
         <p className="text-xs text-muted-foreground tabular-nums">
           {formatNumber(locale, todayXp) +
@@ -616,12 +627,12 @@ function AchievementsCard() {
 function DashboardSkeleton() {
   return (
     <section aria-busy="true">
-      <div className="mb-2 h-4 w-14 animate-pulse rounded bg-accent/30" />
-      <div className="h-9 w-64 max-w-full animate-pulse rounded bg-accent/30" />
-      <div className="mt-3 h-4 w-80 max-w-full animate-pulse rounded bg-accent/30" />
+      <div className="skeleton mb-2 h-4 w-14" />
+      <div className="skeleton h-9 w-64 max-w-full" />
+      <div className="skeleton mt-3 h-4 w-80 max-w-full" />
       <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {[0, 1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-40 animate-pulse rounded-xl bg-accent/30" />
+          <div key={i} className="skeleton h-40 rounded-xl" />
         ))}
       </div>
     </section>

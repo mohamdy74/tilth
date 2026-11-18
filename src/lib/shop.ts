@@ -118,3 +118,11 @@ export function purchaseHistory(purchases: Purchase[]): Purchase[] {
     return a.id < b.id ? 1 : -1;
   });
 }
+
+/** Preset reward categories (labels live in the i18n dictionary). */
+export const SHOP_CATEGORIES = ["treat", "experience", "rest", "growth"] as const;
+export type ShopCategory = (typeof SHOP_CATEGORIES)[number];
+
+export function isShopCategory(v: string): v is ShopCategory {
+  return (SHOP_CATEGORIES as readonly string[]).includes(v);
+}

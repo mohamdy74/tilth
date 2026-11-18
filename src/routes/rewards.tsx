@@ -13,7 +13,8 @@ import {
   Trash2,
   Trophy,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState, type CSSProperties } from "react";
+import { toast } from "sonner";
 import { usePrefs } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { ACHIEVEMENT_ICONS } from "@/components/app/achievementIcons";
@@ -21,8 +22,8 @@ import { startOfWeek } from "@/lib/dates";
 import { formatDate, formatNumber } from "@/lib/i18n";
 import { ACHIEVEMENTS, type Achievement, type AchievementState } from "@/lib/achievements";
 import { dailyChallenges, weeklyChallenges, type ChallengeDef } from "@/lib/challenges";
-import { totalsFromLedger, xpAwardedOnDay } from "@/lib/rewards";
-import { purchaseHistory } from "@/lib/shop";
+import { totalsFromLedger, xpAwardedOnDay, xpSeriesByDay } from "@/lib/rewards";
+import { purchaseHistory, SHOP_CATEGORIES, isShopCategory } from "@/lib/shop";
 import { THEMES, isThemeUnlocked, type ThemeUnlockState } from "@/lib/themes";
 import { DAILY_XP_CAP, THEME_UNLOCKS } from "@/lib/rewardsConfig";
 import {
@@ -32,7 +33,7 @@ import {
   todayLocal,
   useStore,
 } from "@/lib/store";
-import type { AchievementUnlock, Purchase, ShopItem } from "@/lib/types";
+import type { AchievementUnlock, Purchase, ShopItem, XpLedgerEntry } from "@/lib/types";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -99,11 +100,8 @@ function LevelPanel() {
         </p>
         <div className="flex-1 space-y-2">
           <div>
-            <div className="h-2 overflow-hidden rounded-full bg-accent/40" aria-hidden>
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: levelPct + "%" }}
-              />
+            <div className="meter" aria-hidden>
+              <div className="meter-fill" style={{ width: levelPct + "%" }} />
             </div>
             <p className="mt-1 text-xs text-muted-foreground tabular-nums">
               {formatNumber(locale, totals.xpIntoLevel) +
@@ -114,11 +112,8 @@ function LevelPanel() {
             </p>
           </div>
           <div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-accent/40" aria-hidden>
-              <div
-                className="h-full rounded-full bg-primary/70 transition-all"
-                style={{ width: todayPct + "%" }}
-              />
+            <div className="meter h-1.5" aria-hidden>
+              <div className="meter-fill opacity-70" style={{ width: todayPct + "%" }} />
             </div>
             <p className="mt-1 text-xs text-muted-foreground tabular-nums">
               {formatNumber(locale, todayXp) +
@@ -134,6 +129,45 @@ function LevelPanel() {
         <Coins className="size-4 text-primary" aria-hidden />
         {formatNumber(locale, totals.coins) + " " + t.dash.coins}
       </p>
+      <XpSpark ledger={ledger} />
+    </div>
+  );
+}
+
+function XpSpark({ ledger }: { ledger: XpLedgerEntry[] }) {
+  const { t, locale } = usePrefs();
+  const series = xpSeriesByDay(ledger, todayLocal(), 14);
+  const max = Math.max(1, ...series.map((pt) => pt.xp));
+  const W = 220;
+  const H = 40;
+  const pts = series.map((pt, i) => {
+    const x = (i / (series.length - 1)) * (W - 8) + 4;
+    const y = H - 6 - (pt.xp / max) * (H - 12);
+    return [x, y] as const;
+  });
+  const line = pts.map(([x, y]) => x + "," + y).join(" ");
+  const last = pts[pts.length - 1]!;
+  return (
+    <div className="mt-3">
+      <p className="text-xs text-muted-foreground">{t.review.sparkTitle}</p>
+      <svg
+        viewBox={"0 0 " + W + " " + H}
+        className="mt-1 h-10 w-full"
+        role="img"
+        aria-label={t.review.sparkTitle}
+        preserveAspectRatio="none"
+      >
+        <polyline
+          points={line}
+          fill="none"
+          stroke="var(--color-primary)"
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <circle cx={last[0]} cy={last[1]} r="3" fill="var(--color-primary)" />
+      </svg>
+      <p className="sr-only">{series.map((pt) => formatNumber(locale, pt.xp)).join(" / ")}</p>
     </div>
   );
 }
@@ -193,11 +227,8 @@ function ChallengeRow({ def, ps }: { def: ChallengeDef; ps: AchievementState }) 
           </span>
         )}
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-accent/40" aria-hidden>
-        <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: pct + "%" }}
-        />
+      <div className="meter mt-2 h-1.5" aria-hidden>
+        <div className="meter-fill" style={{ width: pct + "%" }} />
       </div>
       <p className="mt-1 text-xs text-muted-foreground tabular-nums">
         {formatNumber(locale, p.current) + " / " + formatNumber(locale, p.goal)}
@@ -261,14 +292,37 @@ function AchievementCard({
         <span
           className={
             "grid size-9 shrink-0 place-items-center rounded-full " +
-            (unlocked ? "bg-primary/20 text-primary" : "bg-accent/40 text-muted-foreground")
+            (unlocked ? "bg-primary/20 text-primary" : "bg-accent/40 text-muted-foreground") +
+            (def.tier === "gold"
+              ? " ring-2 ring-primary/60"
+              : def.tier === "silver"
+                ? " ring-2 ring-muted-foreground/50"
+                : def.tier === "bronze"
+                  ? " ring-2 ring-warning/50"
+                  : "")
           }
         >
           <Icon className="size-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="min-w-0 truncate text-sm font-medium">{t.ach[def.id].name}</p>
+            <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium">
+              {t.ach[def.id].name}
+              {def.tier && (
+                <span
+                  className={
+                    "chip shrink-0 " +
+                    (def.tier === "gold"
+                      ? "border-primary/50 text-primary"
+                      : def.tier === "silver"
+                        ? "border-muted-foreground/40"
+                        : "border-warning/50 text-warning")
+                  }
+                >
+                  {t.badge[def.tier]}
+                </span>
+              )}
+            </p>
             {unlocked ? null : (
               <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
             )}
@@ -305,6 +359,7 @@ const SHOP_QUIET_BTN =
 const SHOP_ICON_BTN = "rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/40";
 
 interface ShopFormState {
+  category: string;
   id: string | null;
   name: string;
   note: string;
@@ -332,16 +387,14 @@ function ShopPanel() {
   const today = todayLocal();
   const items = shopItems.filter((i) => !i.deletedAt);
   const [form, setForm] = useState<ShopFormState | null>(null);
-  const [flash, setFlash] = useState<FlashState>(null);
-  const flashUndo = flash?.undo;
+  // One toast system app-wide (sonner) — same pill, lifetime and undo affordance
+  // as every other route; the old hand-rolled fixed flash is gone.
+  const setFlash = (f: FlashState) => {
+    if (!f) return;
+    toast(f.msg, f.undo ? { action: { label: t.shop.undo, onClick: f.undo } } : {});
+  };
   const nameOk = form !== null && form.name.trim().length > 0;
   const priceOk = form !== null && Number.isInteger(Number(form.price)) && Number(form.price) >= 1;
-
-  useEffect(() => {
-    if (!flash) return;
-    const id = window.setTimeout(() => setFlash(null), 5000);
-    return () => window.clearTimeout(id);
-  }, [flash]);
 
   const buy = (item: ShopItem) => {
     const res = shopApi.buy(item.id);
@@ -362,9 +415,19 @@ function ShopPanel() {
     const price = Number(form.price);
     const note = form.note.trim();
     if (form.id) {
-      shopApi.updateItem(form.id, { name, note: note || undefined, price });
+      shopApi.updateItem(form.id, {
+        name,
+        note: note || undefined,
+        price,
+        category: isShopCategory(form.category) ? form.category : undefined,
+      });
     } else {
-      shopApi.addItem({ name, note: note || undefined, price });
+      shopApi.addItem({
+        name,
+        note: note || undefined,
+        price,
+        category: isShopCategory(form.category) ? form.category : undefined,
+      });
     }
     setForm(null);
   };
@@ -429,6 +492,24 @@ function ShopPanel() {
               className={SHOP_FIELD}
             />
           </label>
+          <label className="mt-2 block text-sm">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              {t.shop.category}
+            </span>
+            <select
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              aria-label={t.shop.category}
+              className={SHOP_FIELD}
+            >
+              <option value="">{t.shop.none}</option>
+              {SHOP_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {t.shop.categories[c]}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="mt-3 flex gap-2">
             <button type="button" onClick={save} className={SHOP_SAVE_BTN}>
               {t.shop.save}
@@ -445,7 +526,7 @@ function ShopPanel() {
       ) : (
         <button
           type="button"
-          onClick={() => setForm({ id: null, name: "", note: "", price: "" })}
+          onClick={() => setForm({ id: null, name: "", note: "", price: "", category: "" })}
           className="mt-3 flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/30"
         >
           <Plus className="size-4" aria-hidden /> {t.shop.addItem}
@@ -453,7 +534,10 @@ function ShopPanel() {
       )}
 
       {items.length === 0 && !form ? (
-        <div className="mt-3 rounded-lg border border-dashed border-border p-6 text-center">
+        <div className="empty-card mt-3 py-8">
+          <span className="grid size-12 place-items-center rounded-full bg-accent/40 text-primary">
+            <ShoppingBag className="size-6" aria-hidden />
+          </span>
           <p className="text-sm font-medium">{t.shop.emptyTitle}</p>
           <p className="mt-1 text-xs text-muted-foreground">{t.shop.emptyBody}</p>
         </div>
@@ -467,7 +551,12 @@ function ShopPanel() {
                 className="flex items-center gap-3 rounded-lg border border-border p-3"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{item.name}</p>
+                  <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                    {item.name}
+                    {item.category && isShopCategory(item.category) && (
+                      <span className="chip shrink-0">{t.shop.categories[item.category]}</span>
+                    )}
+                  </p>
                   {item.note ? (
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.note}</p>
                   ) : null}
@@ -475,8 +564,13 @@ function ShopPanel() {
                     <p className="mt-1 text-xs text-muted-foreground">{t.shop.alreadyToday}</p>
                   ) : null}
                 </div>
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                <span className="shrink-0 text-end text-xs text-muted-foreground tabular-nums">
                   {formatNumber(locale, item.price) + " " + t.dash.coins}
+                  {coins < item.price && (
+                    <span className="block text-warning">
+                      {t.shop.balanceHint.replace("{n}", formatNumber(locale, coins))}
+                    </span>
+                  )}
                 </span>
                 <span className="flex shrink-0 items-center gap-1">
                   <button
@@ -488,6 +582,7 @@ function ShopPanel() {
                         name: item.name,
                         note: item.note ?? "",
                         price: String(item.price),
+                        category: item.category ?? "",
                       })
                     }
                     className={SHOP_ICON_BTN}
@@ -535,27 +630,6 @@ function ShopPanel() {
             <HistoryRow key={p.id} purchase={p} today={today} onFlash={setFlash} />
           ))}
         </ul>
-      )}
-
-      {flash && (
-        <div
-          role="status"
-          className="animate-pop fixed inset-x-0 bottom-20 z-50 mx-auto flex w-fit max-w-[90vw] items-center rounded-full border border-border bg-card px-4 py-2 shadow-elevated md:bottom-6"
-        >
-          <span className="text-sm">{flash.msg}</span>
-          {flashUndo && (
-            <button
-              type="button"
-              onClick={() => {
-                flashUndo();
-                setFlash(null);
-              }}
-              className={SHOP_QUIET_BTN}
-            >
-              {t.shop.undo}
-            </button>
-          )}
-        </div>
       )}
     </div>
   );
@@ -691,8 +765,8 @@ function ThemesPanel() {
                 className={cls}
               >
                 <span
-                  className="size-5 shrink-0 rounded-full border border-border"
-                  style={{ background: "oklch(0.58 0.1 " + th.hue + ")" }}
+                  className="theme-swatch size-5 shrink-0 rounded-full border border-border"
+                  style={{ "--swatch-hue": th.hue } as CSSProperties}
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1">
@@ -716,13 +790,13 @@ function ThemesPanel() {
 function RewardsSkeleton() {
   return (
     <section aria-busy="true">
-      <div className="mb-2 h-4 w-14 animate-pulse rounded bg-accent/30" />
-      <div className="h-9 w-64 max-w-full animate-pulse rounded bg-accent/30" />
-      <div className="mt-3 h-4 w-80 max-w-full animate-pulse rounded bg-accent/30" />
-      <div className="mt-6 h-32 animate-pulse rounded-xl bg-accent/30" />
-      <div className="mt-4 h-48 animate-pulse rounded-xl bg-accent/30" />
-      <div className="mt-4 h-64 animate-pulse rounded-xl bg-accent/30" />
-      <div className="mt-4 h-64 animate-pulse rounded-xl bg-accent/30" />
+      <div className="mb-2 h-4 w-14 skeleton" />
+      <div className="h-9 w-64 max-w-full skeleton" />
+      <div className="mt-3 h-4 w-80 max-w-full skeleton" />
+      <div className="mt-6 h-32 skeleton rounded-xl" />
+      <div className="mt-4 h-48 skeleton rounded-xl" />
+      <div className="mt-4 h-64 skeleton rounded-xl" />
+      <div className="mt-4 h-64 skeleton rounded-xl" />
     </section>
   );
 }

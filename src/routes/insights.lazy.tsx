@@ -1,5 +1,13 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
-import { Clock, SkipForward, Timer, type LucideIcon } from "lucide-react";
+import {
+  CalendarCheck,
+  Clock,
+  SkipForward,
+  Timer,
+  TrendingDown,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
 import { useState, type ReactNode } from "react";
 import {
   Bar,
@@ -15,27 +23,28 @@ import {
 } from "recharts";
 import { usePrefs } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
-import { currentTimeZone } from "@/lib/dates";
+import { Segmented } from "@/components/app/Segmented";
+import { addDays, currentTimeZone } from "@/lib/dates";
 import { formatDate, formatNumber } from "@/lib/i18n";
 import {
   focusMinutesByDay,
   habitConsistencyByDay,
   insightsReport,
+  monthOverMonth,
   taskCompletionsByDay,
+  weekdayFocus,
+  weeklyReview,
   type DayPoint,
   type InsightsReport,
   type Observation,
 } from "@/lib/insights";
-import { todayLocal, useStore } from "@/lib/store";
+import { tasks as taskApi, todayLocal, useStore } from "@/lib/store";
+import { toast } from "sonner";
+import { OUTLINE_BTN } from "@/components/ui/button";
 
 export const Route = createLazyFileRoute("/insights")({
   component: InsightsPage,
 });
-
-const RANGE_ACTIVE =
-  "rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors";
-const RANGE_IDLE =
-  "rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent/40";
 
 interface ChartDatum {
   tick: string;
@@ -134,22 +143,23 @@ function InsightsPage() {
         <EmptyInsights />
       ) : (
         <>
-          <div className="mt-6 flex w-fit gap-1 rounded-lg border border-border p-1">
-            {(["weekly", "monthly"] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                aria-pressed={range === r}
-                onClick={() => setRange(r)}
-                className={range === r ? RANGE_ACTIVE : RANGE_IDLE}
-              >
-                {r === "weekly" ? t.ins.weekly : t.ins.monthly}
-              </button>
-            ))}
+          <div className="mt-6">
+            <Segmented
+              label={t.nav.insights}
+              value={range}
+              onChange={(v) => setRange(v === "monthly" ? "monthly" : "weekly")}
+              options={[
+                { value: "weekly", label: t.ins.weekly },
+                { value: "monthly", label: t.ins.monthly },
+              ]}
+            />
           </div>
+
+          <ReviewPanel />
 
           <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
             <ChartShell
+              hue="primary"
               title={t.ins.charts.tasksTitle}
               summary={fill(t.ins.charts.tasksSummary, {
                 total: formatNumber(locale, taskTotal),
@@ -173,11 +183,13 @@ function InsightsPage() {
                   />
                   <YAxis
                     allowDecimals={false}
-                    width={32}
+                    width={48}
+                    tickMargin={4}
                     orientation={rtl ? "right" : "left"}
                     tickLine={false}
                     axisLine={false}
                     tick={axisTick}
+                    tickFormatter={(v) => formatNumber(locale, Number(v))}
                   />
                   <Tooltip
                     cursor={{ fill: "var(--color-accent)", opacity: 0.2 }}
@@ -191,6 +203,7 @@ function InsightsPage() {
             </ChartShell>
 
             <ChartShell
+              hue="success"
               title={t.ins.charts.habitTitle}
               summary={fill(t.ins.charts.habitSummary, {
                 avg: formatNumber(locale, habitAvg),
@@ -215,11 +228,13 @@ function InsightsPage() {
                   <YAxis
                     domain={[0, 100]}
                     allowDecimals={false}
-                    width={32}
+                    width={48}
+                    tickMargin={4}
                     orientation={rtl ? "right" : "left"}
                     tickLine={false}
                     axisLine={false}
                     tick={axisTick}
+                    tickFormatter={(v) => formatNumber(locale, Number(v))}
                   />
                   <Tooltip
                     contentStyle={tooltipStyle}
@@ -232,13 +247,14 @@ function InsightsPage() {
                     connectNulls
                     dot={false}
                     strokeWidth={2}
-                    stroke="var(--color-primary)"
+                    stroke="var(--color-success)"
                   />
                 </LineChart>
               </ResponsiveContainer>
             </ChartShell>
 
             <ChartShell
+              hue="info"
               title={t.ins.charts.focusTitle}
               summary={fill(t.ins.charts.focusSummary, {
                 total: formatNumber(locale, focusTotal),
@@ -264,11 +280,13 @@ function InsightsPage() {
                   />
                   <YAxis
                     allowDecimals={false}
-                    width={32}
+                    width={48}
+                    tickMargin={4}
                     orientation={rtl ? "right" : "left"}
                     tickLine={false}
                     axisLine={false}
                     tick={axisTick}
+                    tickFormatter={(v) => formatNumber(locale, Number(v))}
                   />
                   <Tooltip
                     cursor={{ fill: "var(--color-accent)", opacity: 0.2 }}
@@ -289,13 +307,15 @@ function InsightsPage() {
                       fill: "var(--color-muted-foreground)",
                     }}
                   />
-                  <Bar dataKey="value" fill="var(--color-primary)" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="value" fill="var(--color-info)" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartShell>
           </div>
         </>
       )}
+
+      <AggregatePanels />
 
       <ObservationsPanel report={report} />
     </section>
@@ -308,6 +328,7 @@ function ChartShell({
   empty,
   emptyMsg,
   wide,
+  hue,
   children,
 }: {
   title: string;
@@ -315,11 +336,16 @@ function ChartShell({
   empty: boolean;
   emptyMsg: string;
   wide?: boolean;
+  /** Series hue token — the header dot matches the chart fill. */
+  hue?: "primary" | "success" | "info";
   children: ReactNode;
 }) {
   return (
     <div className={"panel" + (wide ? " xl:col-span-2" : "")}>
-      <h2 className="text-sm font-semibold">{title}</h2>
+      <h2 className="flex items-center gap-2 text-sm font-semibold">
+        {hue && <span className={"size-2.5 shrink-0 rounded-full bg-" + hue} aria-hidden />}
+        {title}
+      </h2>
       <p className="mt-1 text-xs text-muted-foreground">{summary}</p>
       {empty ? (
         <p className="mt-12 text-center text-sm text-muted-foreground">{emptyMsg}</p>
@@ -409,12 +435,217 @@ function ObservationCard({ obs }: { obs: Observation }) {
 function InsightsSkeleton() {
   return (
     <section aria-busy="true">
-      <div className="mb-2 h-4 w-14 animate-pulse rounded bg-accent/30" />
-      <div className="h-9 w-64 max-w-full animate-pulse rounded bg-accent/30" />
-      <div className="mt-3 h-4 w-80 max-w-full animate-pulse rounded bg-accent/30" />
-      <div className="mt-6 h-10 w-52 animate-pulse rounded bg-accent/30" />
-      <div className="mt-4 h-64 animate-pulse rounded-xl bg-accent/30" />
-      <div className="mt-4 h-64 animate-pulse rounded-xl bg-accent/30" />
+      <div className="mb-2 h-4 w-14 skeleton" />
+      <div className="h-9 w-64 max-w-full skeleton" />
+      <div className="mt-3 h-4 w-80 max-w-full skeleton" />
+      <div className="mt-6 h-10 w-52 skeleton" />
+      <div className="mt-4 h-64 skeleton rounded-xl" />
+      <div className="mt-4 h-64 skeleton rounded-xl" />
     </section>
+  );
+}
+
+/* ---------------- weekly review ritual ---------------- */
+
+function ReviewPanel() {
+  const { t, locale } = usePrefs();
+  const tasks = useStore((s) => s.tasks);
+  const habits = useStore((s) => s.habits);
+  const habitLogs = useStore((s) => s.habitLogs);
+  const focusSessions = useStore((s) => s.focusSessions);
+  const xpLedger = useStore((s) => s.xpLedger);
+  const weekStartsOn = useStore((s) => s.settings.weekStartsOn);
+  const dayStartHour = useStore((s) => s.settings.dayStartHour);
+  const review = weeklyReview({
+    tasks,
+    habits,
+    habitLogs,
+    focusSessions,
+    xpLedger,
+    today: todayLocal(),
+    weekStartsOn,
+    dayStartHour,
+    timeZone: currentTimeZone(),
+  });
+  const nextWeekStart = addDays(review.weekStart, 7);
+  const carry = (id: string, prevDue: string | undefined) => {
+    taskApi.update(id, { dueDate: nextWeekStart });
+    toast(t.review.carried, {
+      action: { label: t.shop.undo, onClick: () => taskApi.update(id, { dueDate: prevDue }) },
+    });
+  };
+  const rows: { key: "tasks" | "focus" | "habits" | "xp"; now: number; prev: number }[] = [
+    { key: "tasks", now: review.current.tasksDone, prev: review.previous.tasksDone },
+    { key: "focus", now: review.current.focusMinutes, prev: review.previous.focusMinutes },
+    { key: "habits", now: review.current.habitDone, prev: review.previous.habitDone },
+    { key: "xp", now: review.current.xp, prev: review.previous.xp },
+  ];
+  return (
+    <div className="panel mt-4 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="panel-title flex items-center gap-2 p-0 text-sm">
+          <CalendarCheck className="size-4 text-primary" aria-hidden />
+          {t.review.title}
+        </h2>
+        <span className="chip tabular-nums">
+          {formatDate(locale, new Date(review.weekStart + "T12:00:00Z"), { dateStyle: "medium" })}
+          {" — "}
+          {formatDate(locale, new Date(review.weekEnd + "T12:00:00Z"), { dateStyle: "medium" })}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {rows.map((r) => {
+          const up = r.now >= r.prev;
+          return (
+            <div key={r.key} className="rounded-lg border border-border bg-background/60 p-3">
+              <p className="font-display text-2xl font-semibold tabular-nums">
+                {formatNumber(locale, r.now)}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{t.review[r.key]}</p>
+              <p
+                className={
+                  "mt-1 flex items-center gap-1 text-xs tabular-nums " +
+                  (up ? "text-success" : "text-warning")
+                }
+              >
+                {up ? (
+                  <TrendingUp className="size-3" aria-hidden />
+                ) : (
+                  <TrendingDown className="size-3" aria-hidden />
+                )}
+                {t.review.lastWeek + ": " + formatNumber(locale, r.prev)}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold">{t.review.carry}</h3>
+          {review.carryOver.length > 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                for (const c of review.carryOver) taskApi.update(c.id, { dueDate: nextWeekStart });
+                toast(t.review.carried);
+              }}
+              className={OUTLINE_BTN + " px-3 py-1.5"}
+            >
+              {t.review.carryAll}
+            </button>
+          )}
+        </div>
+        {review.carryOver.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">{t.review.carryEmpty}</p>
+        ) : (
+          <ul className="mt-2 space-y-1.5">
+            {review.carryOver.map((c) => (
+              <li
+                key={c.id}
+                className="flex items-center gap-2 rounded-lg border border-border bg-background/60 p-2 text-sm"
+              >
+                <span className="min-w-0 flex-1 truncate">{c.title}</span>
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                  {c.dueDate
+                    ? formatDate(locale, new Date(c.dueDate + "T12:00:00Z"), {
+                        dateStyle: "medium",
+                      })
+                    : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => carry(c.id, c.dueDate)}
+                  className={OUTLINE_BTN + " px-2.5 py-1 text-xs"}
+                >
+                  {t.review.carry}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- weekday + month aggregates ---------------- */
+
+function AggregatePanels() {
+  const { t, locale } = usePrefs();
+  const focusSessions = useStore((s) => s.focusSessions);
+  const today = todayLocal();
+  const weekdays = weekdayFocus(focusSessions, today);
+  const maxAvg = Math.max(1, ...weekdays.map((w) => w.avgMinutes));
+  const mom = monthOverMonth(focusSessions, today);
+  const hasWeekday = weekdays.some((w) => w.sessions > 0);
+  const dayLabel = (wd: number) =>
+    formatDate(locale, new Date(Date.UTC(2023, 0, 1 + wd)), { weekday: "long" });
+  return (
+    <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="panel p-4">
+        <h2 className="panel-title p-0 text-sm">{t.review.weekdayTitle}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">{t.review.weekdaySummary}</p>
+        {!hasWeekday ? (
+          <p className="mt-3 text-sm text-muted-foreground">{t.review.weekdayEmpty}</p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {weekdays.map((w) => (
+              <li key={w.weekday} className="flex items-center gap-2 text-sm">
+                <span className="w-20 shrink-0 truncate text-xs text-muted-foreground">
+                  {dayLabel(w.weekday)}
+                </span>
+                <span className="meter h-2 flex-1">
+                  <span
+                    className="meter-fill block"
+                    style={{ width: Math.round((w.avgMinutes / maxAvg) * 100) + "%" }}
+                  />
+                </span>
+                <span className="w-14 shrink-0 text-end text-xs tabular-nums">
+                  {formatNumber(locale, w.avgMinutes) + " " + t.focus.minutes}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className="panel p-4">
+        <h2 className="panel-title p-0 text-sm">{t.review.momTitle}</h2>
+        {mom === null ? (
+          <p className="mt-3 text-sm text-muted-foreground">{t.review.momFloor}</p>
+        ) : (
+          <div className="mt-3">
+            <p className="font-display text-3xl font-semibold tabular-nums">
+              {formatNumber(locale, mom.thisMinutes)}
+              <span className="text-base font-normal text-muted-foreground">
+                {" " + t.focus.minutes}
+              </span>
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground tabular-nums">
+              {t.review.momSummary
+                .replace("{this}", formatNumber(locale, mom.thisMinutes))
+                .replace("{last}", formatNumber(locale, mom.lastMinutes))}
+            </p>
+            <p
+              className={
+                "mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums " +
+                (mom.deltaPct >= 0 ? "bg-success/15 text-success" : "bg-warning/15 text-warning")
+              }
+            >
+              {mom.deltaPct >= 0 ? (
+                <TrendingUp className="size-3" aria-hidden />
+              ) : (
+                <TrendingDown className="size-3" aria-hidden />
+              )}
+              {t.review.momDelta.replace("{n}", formatNumber(locale, Math.abs(mom.deltaPct)))}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground tabular-nums">
+              {formatNumber(locale, mom.thisActiveDays) +
+                " / " +
+                formatNumber(locale, mom.lastActiveDays)}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

@@ -86,16 +86,54 @@ export function buildDayPlan(input: PlanInput): DayPlan {
   let totalMinutes = 0;
   let scheduledMinutes = 0;
 
-  const place = (b: Omit<PlanBlock, "startMinute">, gapBefore = 0): boolean => {
-    if (cursor + gapBefore + b.minutes > endOfDayMinute) return false;
-    cursor += gapBefore;
-    blocks.push({ ...b, startMinute: cursor });
-    cursor += b.minutes;
+  /*
+   * Time-blocking: a task may carry blockStart (minutes from midnight, pinned
+   * by dragging on /plan). Pinned tasks are placed first at their requested
+   * time (or the next free slot at/after it); everything else flows into the
+   * gaps in priority order. Occupied intervals never overlap.
+   */
+  const occupied: { start: number; end: number }[] = [];
+  const fits = (start: number, minutes: number): boolean =>
+    start >= startMinute &&
+    start + minutes <= endOfDayMinute &&
+    occupied.every((o) => start + minutes <= o.start || start >= o.end);
+  const nextFree = (from: number, minutes: number): number | null => {
+    const candidates = [from, ...occupied.map((o) => o.end)].sort((a, b) => a - b);
+    for (const c of candidates) if (c >= from && fits(c, minutes)) return c;
+    return null;
+  };
+  const placeAt = (b: Omit<PlanBlock, "startMinute">, start: number): void => {
+    blocks.push({ ...b, startMinute: start });
+    occupied.push({ start, end: start + b.minutes });
+    cursor = Math.max(cursor, start + b.minutes);
     totalMinutes += b.minutes;
+  };
+  const place = (b: Omit<PlanBlock, "startMinute">, gapBefore = 0): boolean => {
+    const start = nextFree(cursor + gapBefore, b.minutes);
+    if (start === null) return false;
+    placeAt(b, start);
     return true;
   };
 
-  for (const { task, minutes } of taskBlocks) {
+  const pinned = taskBlocks.filter(({ task }) => task.blockStart !== undefined);
+  const flowing = taskBlocks.filter(({ task }) => task.blockStart === undefined);
+  pinned.sort((a, b) => (a.task.blockStart ?? 0) - (b.task.blockStart ?? 0));
+  for (const { task, minutes } of pinned) {
+    const desired = Math.min(Math.max(task.blockStart!, startMinute), endOfDayMinute - minutes);
+    const start = fits(desired, minutes) ? desired : nextFree(desired, minutes);
+    const block = {
+      id: `task:${task.id}`,
+      kind: "task" as const,
+      title: task.title,
+      minutes,
+      priority: task.priority,
+      done: false,
+      sourceId: task.id,
+    };
+    if (start === null) overflowTasks.push(task.title);
+    else placeAt(block, start);
+  }
+  for (const { task, minutes } of flowing) {
     const placed = place({
       id: `task:${task.id}`,
       kind: "task",
@@ -133,6 +171,7 @@ export function buildDayPlan(input: PlanInput): DayPlan {
     );
     if (placed) scheduledMinutes = input.focusTargetMinutes;
   }
+  blocks.sort((a, b) => a.startMinute - b.startMinute);
 
   return {
     blocks,

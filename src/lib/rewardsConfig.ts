@@ -103,4 +103,9 @@ export const THEME_UNLOCKS: Record<AccentId, ThemeUnlockRule> = {
   pine: { type: "achievement", achievementId: "streakSeven" },
   clay: { type: "achievement", achievementId: "firstPurchase" },
   dusk: { type: "level", level: 10 },
+  sand: { type: "default" },
+  sky: { type: "default" },
+  ember: { type: "achievement", achievementId: "marathonDay" },
+  orchid: { type: "level", level: 6 },
+  tide: { type: "achievement", achievementId: "weekWarrior" },
 };

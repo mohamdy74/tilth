@@ -28,11 +28,15 @@ export function Modal({
       <Dialog.Portal>
         <Dialog.Overlay className="animate-fade fixed inset-0 z-50 bg-overlay" />
         <Dialog.Content
+          // Call sites render their own visible heading and body copy; there is
+          // no separate description node, so opt out of aria-describedby
+          // (silences Radix's missing-description warning without duplicating text).
+          aria-describedby={undefined}
           // flex centering (not translate) so the panel behaves in RTL without
           // physical transforms; px-4 gutter matches the previous modals.
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto px-4 py-8"
         >
-          <div className="animate-pop w-full max-w-md rounded-lg border border-border bg-card p-5 shadow-elevated outline-none">
+          <div className="animate-pop w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-elevated outline-none">
             <Dialog.Title className="sr-only">{title}</Dialog.Title>
             {children}
           </div>

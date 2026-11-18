@@ -8,6 +8,7 @@ import {
   levelFromXp,
 } from "./rewardsConfig";
 import type { FocusSession, ISODate, LocalDay, Task, XpLedgerEntry } from "./types";
+import { addDays } from "./dates";
 
 /*
  * Pure rewards engine. XP and coins are DERIVED from the xpLedger
@@ -157,4 +158,21 @@ export function totalsFromLedger(ledger: XpLedgerEntry[]): RewardTotals {
 /** XP awarded on one localDay (live entries) — the today-vs-cap readout. */
 export function xpAwardedOnDay(ledger: XpLedgerEntry[], localDay: LocalDay): number {
   return xpAwardedOn(liveEntries(ledger), localDay);
+}
+
+/** XP per stored localDay over the last `days` days (today included), oldest first. */
+export function xpSeriesByDay(
+  ledger: XpLedgerEntry[],
+  today: LocalDay,
+  days = 14,
+): { day: LocalDay; xp: number }[] {
+  const from = addDays(today, -(days - 1));
+  const by = new Map<LocalDay, number>();
+  for (const e of ledger) {
+    if (e.deletedAt || e.localDay < from || e.localDay > today) continue;
+    by.set(e.localDay, (by.get(e.localDay) ?? 0) + Math.max(0, e.xp));
+  }
+  const out: { day: LocalDay; xp: number }[] = [];
+  for (let d = from; d <= today; d = addDays(d, 1)) out.push({ day: d, xp: by.get(d) ?? 0 });
+  return out;
 }

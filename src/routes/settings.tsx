@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { usePrefs, type Theme } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
+import { Segmented } from "@/components/app/Segmented";
 import { Modal } from "@/components/app/Modal";
 import { DANGER_BTN, OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
 import { BackupError, parseBackup, type ParsedBackup } from "@/lib/backup";
@@ -127,9 +128,12 @@ function SettingsPage() {
         <DataSection />
       </div>
 
-      <div className="mt-4">
-        <StoreStatus />
-      </div>
+      {/* Debug-only data-layer panel (AGENTS.md) — never shown in production. */}
+      {import.meta.env.DEV && (
+        <div className="mt-4">
+          <StoreStatus />
+        </div>
+      )}
     </section>
   );
 }
@@ -138,9 +142,9 @@ function SkeletonPanel() {
   return (
     <fieldset className="panel" aria-busy="true" aria-hidden="true">
       <div className="mt-4 space-y-2">
-        <div className="h-5 w-1/3 animate-pulse rounded bg-accent/30" />
-        <div className="h-4 w-2/3 animate-pulse rounded bg-accent/30" />
-        <div className="h-4 w-1/2 animate-pulse rounded bg-accent/30" />
+        <div className="h-5 w-1/3 skeleton" />
+        <div className="h-4 w-2/3 skeleton" />
+        <div className="h-4 w-1/2 skeleton" />
       </div>
     </fieldset>
   );
@@ -156,20 +160,15 @@ function LanguageSection() {
   return (
     <fieldset id="settings-language" className="panel scroll-mt-6">
       <legend className="panel-title">{t.settings.language}</legend>
-      <div className="segmented" role="radiogroup" aria-label={t.settings.language}>
-        {(["en", "ar"] as const).map((l) => (
-          <button
-            key={l}
-            type="button"
-            role="radio"
-            aria-checked={locale === l}
-            onClick={() => pick(l)}
-            className="segment"
-          >
-            {l === "en" ? "English" : "العربية"}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label={t.settings.language}
+        value={locale}
+        onChange={(v) => pick(v === "ar" ? "ar" : "en")}
+        options={[
+          { value: "en", label: "English" },
+          { value: "ar", label: "العربية" },
+        ]}
+      />
     </fieldset>
   );
 }
@@ -189,20 +188,12 @@ function ThemeSection() {
   return (
     <fieldset id="settings-theme" className="panel scroll-mt-6">
       <legend className="panel-title">{t.settings.theme}</legend>
-      <div className="segmented" role="radiogroup" aria-label={t.settings.theme}>
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={theme === o.value}
-            onClick={() => pick(o.value)}
-            className="segment"
-          >
-            {o.icon} {o.label}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label={t.settings.theme}
+        value={theme}
+        onChange={(v) => pick(v as Theme)}
+        options={options}
+      />
       {theme === "system" && (
         <p className="mt-3 text-xs text-muted-foreground">{t.settings.systemHint}</p>
       )}
@@ -235,20 +226,12 @@ function YourDaySection() {
       <div className="mt-2">
         <p className="text-sm font-medium">{t.settings.dayStart}</p>
         <p className="text-xs text-muted-foreground">{t.settings.dayStartHint}</p>
-        <div className="segmented" role="radiogroup" aria-label={t.settings.dayStart}>
-          {DAY_START_HOURS.map((h) => (
-            <button
-              key={h}
-              type="button"
-              role="radio"
-              aria-checked={settings.dayStartHour === h}
-              onClick={() => settingsApi.update({ dayStartHour: h })}
-              className="segment tabular-nums"
-            >
-              {dayHourLabel(h)}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label={t.settings.dayStart}
+          value={String(settings.dayStartHour)}
+          onChange={(v) => settingsApi.update({ dayStartHour: v === "4" ? 4 : 0 })}
+          options={DAY_START_HOURS.map((h) => ({ value: String(h), label: dayHourLabel(h) }))}
+        />
       </div>
 
       <div className="mt-4">
@@ -447,22 +430,30 @@ function SyncSection() {
   const commit = async () => {
     setSyncStatus("syncing");
     setStatusMsg(null);
-    // Pull first: merge the remote replica into local data, then push the
-    // merged result. Pushing first would overwrite remote-only records.
-    const pulled = await sync.pull();
-    if (!pulled.ok) {
+    try {
+      // Pull first: merge the remote replica into local data, then push the
+      // merged result. Pushing first would overwrite remote-only records.
+      const pulled = await sync.pull();
+      if (!pulled.ok) {
+        setSyncStatus("error");
+        setStatusMsg(t.sync.error.replace("{message}", pulled.error ?? ""));
+        return;
+      }
+      const pushed = await sync.push();
+      if (!pushed.ok) {
+        setSyncStatus("error");
+        setStatusMsg(t.sync.error.replace("{message}", pushed.error ?? ""));
+        return;
+      }
+      setSyncStatus("ok");
+      setStatusMsg(
+        pulled.conflicts && pulled.conflicts > 0 ? t.sync.conflictsHint : t.sync.upToDate,
+      );
+    } catch (err) {
+      // A thrown transport error must never leave the button stuck "syncing".
       setSyncStatus("error");
-      setStatusMsg(t.sync.error.replace("{message}", pulled.error ?? ""));
-      return;
+      setStatusMsg(t.sync.error.replace("{message}", err instanceof Error ? err.message : ""));
     }
-    const pushed = await sync.push();
-    if (!pushed.ok) {
-      setSyncStatus("error");
-      setStatusMsg(t.sync.error.replace("{message}", pushed.error ?? ""));
-      return;
-    }
-    setSyncStatus("ok");
-    setStatusMsg(pulled.conflicts && pulled.conflicts > 0 ? t.sync.conflictsHint : t.sync.upToDate);
   };
 
   const conflicts = st?.conflicts ?? [];
@@ -489,7 +480,9 @@ function SyncSection() {
             <input
               value={st?.endpoint ?? ""}
               onChange={(e) =>
-                settingsApi.update({ sync: { ...st!, endpoint: e.target.value } })
+                settingsApi.update({
+                  sync: { ...(st ?? defaultSyncInSettings()), endpoint: e.target.value },
+                })
               }
               placeholder="https://my-server.example/api/sync"
               className="input"
@@ -502,7 +495,9 @@ function SyncSection() {
               type="password"
               value={st?.passphrase ?? ""}
               onChange={(e) =>
-                settingsApi.update({ sync: { ...st!, passphrase: e.target.value } })
+                settingsApi.update({
+                  sync: { ...(st ?? defaultSyncInSettings()), passphrase: e.target.value },
+                })
               }
               placeholder="••••••••"
               className="input"
@@ -519,8 +514,8 @@ function SyncSection() {
               <RefreshCw className="size-4 shrink-0" aria-hidden />
               {syncStatus === "syncing" ? t.sync.syncing : t.sync.syncNow}
             </button>
-            <span className="ml-auto text-xs text-muted-foreground">
-              {t.sync.lastSync}:{' '}
+            <span className="ms-auto text-xs text-muted-foreground">
+              {t.sync.lastSync}:{" "}
               {st?.lastSyncedAt ? formatDate(locale, new Date(st.lastSyncedAt)) : t.sync.never}
             </span>
           </div>
@@ -540,13 +535,33 @@ function SyncSection() {
               <p className="text-xs font-semibold text-muted-foreground">{t.sync.conflicts}</p>
               <p className="text-xs text-muted-foreground">{t.sync.conflictsHint}</p>
               {conflicts.map((c) => (
-                <div
-                  key={c.id}
-                  className="rounded-lg border border-border bg-card p-3 text-sm"
-                >
+                <div key={c.id} className="rounded-lg border border-border bg-card p-3 text-sm">
                   <div className="mb-1 truncate text-muted-foreground">
                     {c.collection}:{c.recordId} ({c.reason})
                   </div>
+                  <details className="mb-2">
+                    <summary className="cursor-pointer text-xs font-medium text-primary">
+                      {t.sync.compare}
+                    </summary>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <div className="min-w-0">
+                        <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                          {t.sync.keepLocal}
+                        </p>
+                        <pre className="max-h-40 overflow-auto rounded-md border border-border bg-background p-2 font-mono text-[11px] leading-4">
+                          {JSON.stringify(c.local, null, 2)}
+                        </pre>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                          {t.sync.keepRemote}
+                        </p>
+                        <pre className="max-h-40 overflow-auto rounded-md border border-border bg-background p-2 font-mono text-[11px] leading-4">
+                          {JSON.stringify(c.remote, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  </details>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -869,11 +884,11 @@ function StoreStatus() {
   if (!ready) {
     return (
       <fieldset className="panel" aria-busy="true">
-        <legend className="panel-title">Store status</legend>
+        <legend className="panel-title">{t.debug.title}</legend>
         <div className="mt-4 space-y-2" aria-hidden="true">
-          <div className="h-4 w-2/3 animate-pulse rounded bg-accent/30" />
-          <div className="h-4 w-1/2 animate-pulse rounded bg-accent/30" />
-          <div className="h-4 w-3/5 animate-pulse rounded bg-accent/30" />
+          <div className="h-4 w-2/3 skeleton" />
+          <div className="h-4 w-1/2 skeleton" />
+          <div className="h-4 w-3/5 skeleton" />
         </div>
         <p className="mt-3 text-xs text-muted-foreground">{t.debug.loading}</p>
       </fieldset>
@@ -923,7 +938,7 @@ function StoreStatus() {
           >
             <path d="M6 3l6 5-6 5" />
           </svg>
-          Store status
+          {t.debug.title}
         </span>
       </summary>
       <dl className="mt-3 grid gap-x-8 text-sm sm:grid-cols-2">

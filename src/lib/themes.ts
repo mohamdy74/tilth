@@ -21,6 +21,11 @@ export const THEMES: AccentTheme[] = [
   { id: "pine", hue: 172 },
   { id: "clay", hue: 45 },
   { id: "dusk", hue: 300 },
+  { id: "sand", hue: 85 },
+  { id: "sky", hue: 230 },
+  { id: "ember", hue: 25 },
+  { id: "orchid", hue: 330 },
+  { id: "tide", hue: 200 },
 ];
 
 export const DEFAULT_ACCENT: AccentId = "moss";

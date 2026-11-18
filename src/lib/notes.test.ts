@@ -134,3 +134,24 @@ describe("notes perf guard", () => {
     expect(Date.now() - t0).toBeLessThan(250);
   });
 });
+
+describe("note backlinks", () => {
+  it("[[title]] becomes a delegable button carrying the escaped title", () => {
+    const html = mdToHtml("see [[Ship the report]] now");
+    expect(html).toContain('class="note-link"');
+    expect(html).toContain('data-task-title="Ship the report"');
+    expect(html).toContain(">Ship the report</button>");
+  });
+
+  it("titles are entity-escaped inside the attribute", () => {
+    const html = mdToHtml('[[a "b" & <c>]]');
+    expect(html).toContain('data-task-title="a &quot;b&quot; &amp; &lt;c&gt;"');
+    expect(html).not.toContain("<c>");
+  });
+
+  it("plain markdown links still work and javascript: stays text", () => {
+    const html = mdToHtml("[ok](https://x.dev) [bad](javascript:alert(1))");
+    expect(html).toContain('href="https://x.dev"');
+    expect(html).not.toContain('href="javascript:');
+  });
+});

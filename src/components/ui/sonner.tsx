@@ -6,6 +6,15 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       className="toaster group"
+      // Sonner's unlayered base styles outrank Tailwind utilities, so the
+      // surface tokens are fed through its own CSS variables instead.
+      style={
+        {
+          "--normal-bg": "var(--color-card)",
+          "--normal-text": "var(--color-foreground)",
+          "--normal-border": "var(--color-border)",
+        } as React.CSSProperties
+      }
       toastOptions={{
         classNames: {
           // Pill parity with the hand-rolled toasts this replaces — one look,
