@@ -28,10 +28,9 @@ import { toast } from "sonner";
 import { weekdayOf } from "@/lib/dates";
 import { formatDate, formatNumber, type Locale } from "@/lib/i18n";
 import { parseQuickAdd } from "@/lib/quickAdd";
-import { sortTasks } from "@/lib/taskSort";
-import type { TaskSort } from "@/lib/types";
+import { buildTaskViews } from "@/lib/taskViews";
 import { tasks as taskApi, views as viewsApi, todayLocal, useStore } from "@/lib/store";
-import type { Priority, RecurrenceRule, Task, TaskStatus } from "@/lib/types";
+import type { Priority, RecurrenceRule, Task, TaskBucket, TaskSort, TaskStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/tasks")({
   head: () => ({
@@ -51,10 +50,9 @@ export const Route = createFileRoute("/tasks")({
   component: TasksPage,
 });
 
-type ViewKey = "today" | "upcoming" | "overdue" | "completed" | "inbox";
 type Mode = "list" | "board";
 
-const VIEWS: ViewKey[] = ["today", "upcoming", "overdue", "completed", "inbox"];
+const VIEWS: TaskBucket[] = ["today", "upcoming", "overdue", "completed", "inbox"];
 const PRIORITIES: Priority[] = ["low", "medium", "high"];
 const STS: TaskStatus[] = ["todo", "doing", "done"];
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -63,7 +61,7 @@ function TasksPage() {
   const { t, locale } = usePrefs();
   const ready = useStore((s) => s.ready);
   const allTasks = useStore((s) => s.tasks);
-  const [view, setView] = useState<ViewKey>("today");
+  const [view, setView] = useState<TaskBucket>("today");
   const [mode, setMode] = useState<Mode>("list");
   const [sort, setSort] = useState<TaskSort>("due");
   const [savingView, setSavingView] = useState(false);
@@ -168,42 +166,13 @@ function TasksPage() {
   const live = allTasks.filter((x) => !x.deletedAt);
   const allTags = [...new Set(live.flatMap((x) => x.tags))].sort();
 
-  const q = deferredSearch.trim().toLowerCase();
-  const filtered = live.filter(
-    (x) =>
-      (priorityFilter === "all" || x.priority === priorityFilter) &&
-      (tagFilter === "all" || x.tags.includes(tagFilter)) &&
-      (q === "" ||
-        x.title.toLowerCase().includes(q) ||
-        (x.notes ?? "").toLowerCase().includes(q) ||
-        x.tags.some((g) => g.includes(q))),
-  );
-
-  // Views bucket purely from the stored localDay vs today — never recomputed.
-  const byView: Record<ViewKey, Task[]> = {
-    today: [],
-    upcoming: [],
-    overdue: [],
-    completed: [],
-    inbox: [],
-  };
-  for (const x of filtered) {
-    if (x.status === "done") byView.completed.push(x);
-    else if (!x.dueDate) byView.inbox.push(x);
-    else if (x.dueDate < today) byView.overdue.push(x);
-    else if (x.dueDate === today) byView.today.push(x);
-    else byView.upcoming.push(x);
-  }
-  byView.today = sortTasks(byView.today, sort);
-  byView.inbox = sortTasks(byView.inbox, sort);
-  byView.upcoming = sortTasks(byView.upcoming, sort);
-  byView.overdue = sortTasks(byView.overdue, sort);
-  byView.completed =
-    sort === "due"
-      ? [...byView.completed].sort((a, b) =>
-          (b.completedAt ?? "").localeCompare(a.completedAt ?? ""),
-        )
-      : sortTasks(byView.completed, sort);
+  const byView = buildTaskViews(live, {
+    today,
+    priority: priorityFilter,
+    tag: tagFilter,
+    search: deferredSearch,
+    sort,
+  });
 
   const showToast = (msg: string, undo?: () => void) =>
     toast(msg, undo ? { action: { label: t.tasks.toasts.undo, onClick: undo } } : {});
@@ -328,7 +297,7 @@ function TasksPage() {
           label={t.nav.tasks}
           value={view}
           onChange={(v) => {
-            setView(v as ViewKey);
+            setView(v as TaskBucket);
             setExpandedId(null);
           }}
           options={VIEWS.map((v) => ({
@@ -564,7 +533,7 @@ function TasksSkeleton() {
   );
 }
 
-function EmptyState({ view, onAdd }: { view: ViewKey; onAdd: () => void }) {
+function EmptyState({ view, onAdd }: { view: TaskBucket; onAdd: () => void }) {
   const { t } = usePrefs();
   const e = t.tasks.empty[view];
   return (

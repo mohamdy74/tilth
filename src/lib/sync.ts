@@ -96,12 +96,6 @@ export function mergeSync(
         out.push((l ?? r)!);
         continue;
       }
-      const ls = stableStringify(l);
-      const rs = stableStringify(r);
-      if (ls === rs) {
-        out.push(l);
-        continue;
-      }
       const lDeleted = l.deletedAt !== undefined;
       const rDeleted = r.deletedAt !== undefined;
       if (lDeleted !== rDeleted) {
@@ -120,22 +114,30 @@ export function mergeSync(
         });
         continue;
       }
-      if (l.updatedAt === r.updatedAt) {
-        const winner = ls < rs ? l : r;
-        out.push(winner);
-        conflicts.push({
-          id: `${c}:${id}`,
-          collection: c,
-          recordId: id,
-          reason: "same-timestamp",
-          local: l,
-          remote: r,
-          winner: ls < rs ? "local" : "remote",
-          at,
-        });
+      if (l.updatedAt !== r.updatedAt) {
+        out.push(l.updatedAt > r.updatedAt ? l : r);
         continue;
       }
-      out.push(l.updatedAt > r.updatedAt ? l : r);
+
+      // Canonical JSON is only needed for identical-content and tie-break checks.
+      const ls = stableStringify(l);
+      const rs = stableStringify(r);
+      if (ls === rs) {
+        out.push(l);
+        continue;
+      }
+      const winner = ls < rs ? l : r;
+      out.push(winner);
+      conflicts.push({
+        id: `${c}:${id}`,
+        collection: c,
+        recordId: id,
+        reason: "same-timestamp",
+        local: l,
+        remote: r,
+        winner: ls < rs ? "local" : "remote",
+        at,
+      });
     }
     merged[c] = out;
   }

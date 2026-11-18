@@ -63,6 +63,16 @@ describe("sync merge", () => {
     expect(conflicts[0]!.local).toBe(local);
     expect(conflicts[0]!.remote).toBe(remote);
   });
+
+  it("same-timestamp delete-vs-edit -> delete still wins", () => {
+    const local = { id: "a", updatedAt: "t1", name: "deleted", deletedAt: "t1" };
+    const remote = { id: "a", updatedAt: "t1", name: "live" };
+    const { merged, conflicts } = mergeSync({ tasks: [local] }, { tasks: [remote] }, "now");
+    expect(merged["tasks"]).toEqual([local]);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]!.reason).toBe("delete-vs-edit");
+    expect(conflicts[0]!.winner).toBe("local");
+  });
 });
 
 describe("sync payload", () => {
