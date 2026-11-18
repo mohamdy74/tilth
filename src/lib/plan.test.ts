@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDayPlan } from "./plan";
+import { buildDayPlan, formatClock, layoutDayPlan, type PlanBlock } from "./plan";
 import type { Habit, HabitLog, LocalDay, Task } from "./types";
 
 const today: LocalDay = "2026-11-16"; // Monday
@@ -170,6 +170,109 @@ describe("plan", () => {
     const task = p.blocks.find((b) => b.kind === "task")!;
     expect(focus.startMinute).toBe(task.startMinute + task.minutes + 15);
     expect(p.scheduledMinutes).toBe(25);
+  });
+});
+
+const mkBlock = (
+  over: Partial<PlanBlock> & Pick<PlanBlock, "id" | "startMinute" | "minutes">,
+): PlanBlock => ({
+  kind: "task",
+  title: over.id,
+  priority: undefined,
+  done: false,
+  sourceId: over.id,
+  ...over,
+});
+
+describe("layoutDayPlan", () => {
+  it("empty input -> full-day height, no lanes", () => {
+    const l = layoutDayPlan([]);
+    expect(l.blocks).toEqual([]);
+    expect(l.laneCount).toBe(0);
+    expect(l.height).toBe(13 * 64);
+  });
+
+  it("sequential blocks use one lane at their true offsets", () => {
+    const l = layoutDayPlan([
+      mkBlock({ id: "a", startMinute: 9 * 60, minutes: 45 }),
+      mkBlock({ id: "b", startMinute: 10 * 60, minutes: 30 }),
+    ]);
+    expect(l.blocks.map((b) => b.lane)).toEqual([0, 0]);
+    expect(l.blocks.map((b) => b.lanes)).toEqual([1, 1]);
+    expect(l.blocks[0]!.top).toBe(0);
+    expect(l.blocks[0]!.height).toBe(48);
+    expect(l.blocks[1]!.top).toBe(64);
+  });
+
+  it("a 15-minute block keeps its top but grows to the minimum height", () => {
+    const l = layoutDayPlan([mkBlock({ id: "a", startMinute: 11 * 60, minutes: 15 })]);
+    expect(l.blocks[0]!.top).toBe(128);
+    expect(l.blocks[0]!.height).toBe(28);
+  });
+
+  it("overlapping blocks split into columns at the same top", () => {
+    const l = layoutDayPlan([
+      mkBlock({ id: "a", startMinute: 9 * 60, minutes: 60 }),
+      mkBlock({ id: "b", startMinute: 9 * 60 + 30, minutes: 60 }),
+    ]);
+    expect(l.blocks.map((b) => b.lane)).toEqual([0, 1]);
+    expect(l.blocks.map((b) => b.lanes)).toEqual([2, 2]);
+    expect(l.blocks[0]!.top).toBe(0);
+    expect(l.blocks[1]!.top).toBe(32);
+    expect(l.laneCount).toBe(2);
+  });
+
+  it("short back-to-back blocks split lanes when minimum height would collide", () => {
+    const l = layoutDayPlan([
+      mkBlock({ id: "a", startMinute: 12 * 60 + 30, minutes: 15 }),
+      mkBlock({ id: "b", startMinute: 12 * 60 + 45, minutes: 15 }),
+      mkBlock({ id: "c", startMinute: 13 * 60 + 10, minutes: 100 }),
+    ]);
+    // a: 224..252, b: 240..268, c: 267..374 (render pixels)
+    expect(l.blocks.map((b) => [b.lane, b.lanes])).toEqual([
+      [0, 2],
+      [1, 2],
+      [0, 2],
+    ]);
+    expect(l.blocks[0]!.top).toBe(224);
+    expect(l.blocks[1]!.top).toBe(240);
+    expect(l.blocks[2]!.top).toBeCloseTo(266.67, 1);
+  });
+
+  it("chained overlaps reuse the lowest free lane", () => {
+    const l = layoutDayPlan([
+      mkBlock({ id: "a", startMinute: 9 * 60, minutes: 60 }),
+      mkBlock({ id: "b", startMinute: 9 * 60 + 30, minutes: 60 }),
+      mkBlock({ id: "c", startMinute: 10 * 60 + 15, minutes: 45 }),
+    ]);
+    expect(l.blocks.map((b) => [b.block.id, b.lane, b.lanes])).toEqual([
+      ["a", 0, 2],
+      ["b", 1, 2],
+      ["c", 0, 2],
+    ]);
+    expect(l.laneCount).toBe(2);
+  });
+
+  it("respects a nonzero window start and does not mutate input", () => {
+    const input = [mkBlock({ id: "a", startMinute: 12 * 60, minutes: 30 })];
+    const l = layoutDayPlan(input, { startMinute: 10 * 60, hourPx: 32 });
+    expect(l.blocks[0]!.top).toBe(64);
+    expect(l.blocks[0]!.height).toBe(28); // 16px < minBlockPx
+    expect(input[0]!.startMinute).toBe(12 * 60);
+  });
+});
+
+describe("formatClock", () => {
+  it("formats 24-hour time", () => {
+    expect(formatClock("en", 9 * 60 + 5)).toBe("09:05");
+  });
+
+  it("formats 12-hour time", () => {
+    expect(formatClock("en", 9 * 60 + 5, true)).toBe("09:05 AM");
+  });
+
+  it("uses Arabic-Indic digits in Arabic", () => {
+    expect(formatClock("ar", 9 * 60)).toMatch(/[٠-٩]/);
   });
 });
 

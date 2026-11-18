@@ -1,3 +1,4 @@
+import type { Locale } from "./i18n";
 import { isScheduledOn } from "./streaks";
 import type { Habit, HabitLog, LocalDay, Priority, Task } from "./types";
 
@@ -180,5 +181,95 @@ export function buildDayPlan(input: PlanInput): DayPlan {
     overflowTasks,
     startMinute: blocks.length ? blocks[0]!.startMinute : startMinute,
     endMinute: cursor,
+  };
+}
+
+/** Localized wall-clock label for minutes from midnight. */
+export function formatClock(locale: Locale, minutes: number, hour12 = false): string {
+  const date = new Date(Date.UTC(2023, 0, 1, Math.floor(minutes / 60), minutes % 60));
+  return new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12,
+    timeZone: "UTC",
+  }).format(date);
+}
+
+export interface PlacedPlanBlock {
+  block: PlanBlock;
+  lane: number;
+  /** Columns in this block's overlap cluster (1 when nothing overlaps). */
+  lanes: number;
+  top: number;
+  height: number;
+}
+
+export interface DayLayout {
+  blocks: PlacedPlanBlock[];
+  height: number;
+  laneCount: number;
+}
+
+export interface DayLayoutOptions {
+  startMinute?: number;
+  endMinute?: number;
+  hourPx?: number;
+  minBlockPx?: number;
+}
+
+/*
+ * Display geometry for the /plan timeline. Positions come from the stored
+ * start and duration only; short blocks keep their true top and grow to a
+ * readable minimum height. Blocks whose rendered boxes collide (including
+ * that growth) get side-by-side lanes so nothing is hidden.
+ */
+export function layoutDayPlan(blocks: PlanBlock[], opts: DayLayoutOptions = {}): DayLayout {
+  const startMinute = opts.startMinute ?? 9 * 60;
+  const endMinute = opts.endMinute ?? 22 * 60;
+  const hourPx = opts.hourPx ?? 64;
+  const minBlockPx = opts.minBlockPx ?? 28;
+
+  const sorted = [...blocks].sort(
+    (a, b) => a.startMinute - b.startMinute || a.id.localeCompare(b.id),
+  );
+  const placed: PlacedPlanBlock[] = [];
+  let cluster: { block: PlanBlock; lane: number }[] = [];
+  let laneEnds: number[] = [];
+  let clusterEnd = -Infinity;
+
+  const topOf = (b: PlanBlock) => ((b.startMinute - startMinute) / 60) * hourPx;
+  const heightOf = (b: PlanBlock) => Math.max((b.minutes / 60) * hourPx, minBlockPx);
+  const bottomOf = (b: PlanBlock) => topOf(b) + heightOf(b);
+
+  const flush = () => {
+    for (const { block, lane } of cluster) {
+      placed.push({
+        block,
+        lane,
+        lanes: laneEnds.length,
+        top: topOf(block),
+        height: heightOf(block),
+      });
+    }
+    cluster = [];
+    laneEnds = [];
+  };
+
+  for (const block of sorted) {
+    // Lanes compare RENDERED intervals: short blocks grow to minBlockPx, so
+    // back-to-back 15-minute events would otherwise overlap on screen.
+    if (topOf(block) >= clusterEnd) flush();
+    clusterEnd = Math.max(clusterEnd, bottomOf(block));
+    let lane = laneEnds.findIndex((end) => end <= topOf(block));
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = bottomOf(block);
+    cluster.push({ block, lane });
+  }
+  flush();
+
+  return {
+    blocks: placed,
+    height: ((endMinute - startMinute) / 60) * hourPx,
+    laneCount: placed.reduce((max, b) => Math.max(max, b.lanes), 0),
   };
 }
