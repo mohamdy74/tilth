@@ -317,7 +317,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main id="main" className="pb-24 md:ps-60 md:pb-0">
+      <main id="main" className="pb-[calc(9rem+env(safe-area-inset-bottom))] md:ps-60 md:pb-0">
         <div className="mx-auto max-w-5xl px-5 py-8 md:px-10 md:py-12 animate-rise">{children}</div>
       </main>
 

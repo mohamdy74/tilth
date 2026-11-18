@@ -269,20 +269,20 @@ function FocusPage() {
               onChange={(v) => setMode(v === "custom" ? "custom" : "pomodoro")}
               label={t.nav.focus}
             />
-            <span className="flex items-center gap-2">
+            <span className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               <AmbienceSelect value={ambience} onChange={pickAmbience} />
               <button
                 type="button"
                 onClick={toggleSound}
                 aria-pressed={soundOn}
-                className={OUTLINE_BTN + " px-3 py-1.5"}
+                className={OUTLINE_BTN + " w-full min-w-0 max-w-full px-3 py-1.5 sm:w-auto"}
               >
                 {soundOn ? (
-                  <Volume2 className="size-4" aria-hidden />
+                  <Volume2 className="size-4 shrink-0" aria-hidden />
                 ) : (
-                  <VolumeX className="size-4" aria-hidden />
+                  <VolumeX className="size-4 shrink-0" aria-hidden />
                 )}
-                {t.focus.sound}
+                <span className="min-w-0 truncate">{t.focus.sound}</span>
               </button>
             </span>
           </div>
@@ -409,8 +409,8 @@ function ActivePanel({
   const isBreak = active.mode === "break";
   return (
     <div className="panel mt-6 p-6 text-center">
-      <div className="flex items-center justify-between gap-3">
-        <p className="min-w-0 truncate text-sm font-medium text-primary">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-primary">
           {active.mode === "break" ? t.focus.break : t.focus.mode[active.mode]}
           {taskTitle !== undefined && (
             <span className="text-muted-foreground">{" — " + taskTitle}</span>
@@ -647,13 +647,21 @@ function AmbienceSelect({
           ? t.focus.ambienceBrown
           : t.focus.ambienceWhite;
   return (
-    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span className={compact ? "sr-only" : ""}>{t.focus.ambience}</span>
+    <label
+      className={
+        (compact ? "flex shrink-0" : "flex w-full min-w-0") +
+        " items-center gap-1.5 text-xs text-muted-foreground"
+      }
+    >
+      <span className={compact ? "sr-only" : "shrink-0"}>{t.focus.ambience}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as AmbienceKind)}
         aria-label={t.focus.ambience}
-        className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground"
+        className={
+          (compact ? "w-28" : "w-full") +
+          " h-8 min-w-0 max-w-full truncate rounded-md border border-border bg-card px-2 text-xs text-foreground"
+        }
       >
         {(["off", "rain", "brown", "white"] as AmbienceKind[]).map((k) => (
           <option key={k} value={k}>
