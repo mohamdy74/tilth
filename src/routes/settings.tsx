@@ -27,7 +27,8 @@ import { DANGER_BTN, OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
 import { BackupError, parseBackup, type ParsedBackup } from "@/lib/backup";
 import { buildZipExport, exportZipFileName } from "@/lib/exportZip";
 import { formatDate, formatNumber, type Locale } from "@/lib/i18n";
-import { isStandalone } from "@/lib/pwa";
+import { toast } from "sonner";
+import { applyUpdate, checkForUpdate, isStandalone } from "@/lib/pwa";
 import {
   exportSnapshot,
   flushAll,
@@ -319,6 +320,7 @@ function AppSection() {
   const { t } = usePrefs();
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     const onPrompt = (e: Event) => {
@@ -353,6 +355,33 @@ function AppSection() {
       ) : (
         <p className="mt-3 text-xs text-muted-foreground">{t.pwa.installUnsupported}</p>
       )}
+      <div className="mt-4 border-t border-border/60 pt-3">
+        <button
+          type="button"
+          disabled={checking}
+          onClick={() => {
+            setChecking(true);
+            void checkForUpdate()
+              .then((res) => {
+                if (res === "ready") {
+                  toast(t.pwa.updateAvailable, {
+                    action: { label: t.pwa.reload, onClick: () => applyUpdate() },
+                  });
+                } else if (res === "current") {
+                  toast(t.pwa.upToDate);
+                } else {
+                  toast(t.pwa.updatePublishedOnly);
+                }
+              })
+              .finally(() => setChecking(false));
+          }}
+          className={OUTLINE_BTN + " px-3 py-1.5"}
+        >
+          <RefreshCw className={"size-4" + (checking ? " animate-spin" : "")} aria-hidden />
+          {t.pwa.checkUpdate}
+        </button>
+        <p className="mt-2 text-xs text-muted-foreground">{t.pwa.updateHint}</p>
+      </div>
     </fieldset>
   );
 }

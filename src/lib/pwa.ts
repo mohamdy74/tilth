@@ -91,3 +91,20 @@ export function isStandalone(): boolean {
   const iOS = (navigator as Navigator & { standalone?: boolean }).standalone === true;
   return standalone || iOS;
 }
+
+/**
+ * Manual update check (Settings → App). Resolves "ready" when a new worker
+ * is waiting behind the active one, "current" when up to date, and
+ * "unsupported" where no worker exists (dev, preview, or no SW support).
+ */
+export async function checkForUpdate(): Promise<"ready" | "current" | "unsupported"> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return "unsupported";
+  const reg = await navigator.serviceWorker.getRegistration("/");
+  if (!reg) return "unsupported";
+  try {
+    await reg.update();
+  } catch {
+    /* offline: fall through to the waiting-worker check */
+  }
+  return reg.waiting && reg.active ? "ready" : "current";
+}
