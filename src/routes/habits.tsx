@@ -16,7 +16,6 @@ import { usePrefs } from "@/components/app/preferences";
 import { Segmented } from "@/components/app/Segmented";
 import { Modal } from "@/components/app/Modal";
 import { drawShareCard, shareCardDataUrl, type ShareCellKind } from "@/lib/shareCard";
-import { isFrozenOn } from "@/lib/streaks";
 import { PageHeader } from "@/components/app/PageHeader";
 import { OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -828,7 +827,7 @@ function ShareButton({
   today: string;
   weekStartsOn: number;
 }) {
-  const { t, locale } = usePrefs();
+  const { t } = usePrefs();
   const [open, setOpen] = useState(false);
   return (
     <>

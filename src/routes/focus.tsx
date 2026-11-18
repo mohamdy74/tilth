@@ -10,7 +10,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePrefs } from "@/components/app/preferences";
 import { Segmented } from "@/components/app/Segmented";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -127,11 +127,11 @@ function FocusPage() {
 
   const showToast = (msg: string) => toast(msg);
 
-  const startWork = () => {
+  const startWork = useCallback(() => {
     const minutes = mode === "pomodoro" ? 25 : customWork;
     focusApi.start(mode, minutes, linkedTaskId === "" ? undefined : linkedTaskId);
     setBreakReady(null);
-  };
+  }, [mode, customWork, linkedTaskId]);
 
   const startBreakSession = () => {
     const short = mode === "pomodoro" ? 5 : customBreak;
@@ -146,11 +146,11 @@ function FocusPage() {
     setBreakReady(null);
   };
 
-  const togglePause = () => {
+  const togglePause = useCallback(() => {
     if (!active) return;
     if (active.pausedAt) focusApi.resume(active.id);
     else focusApi.pause(active.id);
-  };
+  }, [active]);
 
   const distraction = () => {
     if (active) focusApi.distraction(active.id);
@@ -201,7 +201,7 @@ function FocusPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, confirming, ready, mode, customWork, linkedTaskId]);
+  }, [active, confirming, ready, startWork, togglePause]);
 
   // Memoized: the 500 ms timer tick re-renders this page, and none of these
   // depend on the tick — they must not recompute on every tick. Hooks stay

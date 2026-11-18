@@ -31,7 +31,6 @@ jobs:
         run: npm run test
       - name: Lint
         run: npm run lint
-        continue-on-error: true # TODO: make blocking after a prettier baseline pass
 
   workerd-smoke:
     name: workerd SSR smoke (production runtime)

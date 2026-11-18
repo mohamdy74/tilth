@@ -17,7 +17,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useDeferredValue, useEffect, useRef, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { usePrefs } from "@/components/app/preferences";
 import { Segmented } from "@/components/app/Segmented";
 import { PageHeader } from "@/components/app/PageHeader";

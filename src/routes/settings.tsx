@@ -1,19 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowRightCircle,
   BellRing,
   Check,
   Database,
   Download,
   FileWarning,
   Keyboard,
-  Lock,
   Monitor,
   Moon,
   RefreshCw,
-  Save,
-  ShieldAlert,
   Smartphone,
   Sprout,
   Sun,

@@ -11,7 +11,6 @@ import {
 import { CURRENT_SCHEMA_VERSION, type Snapshot } from "./types";
 
 const stamp = "2026-01-01T00:00:00.000Z";
-const enc = new TextEncoder();
 
 /** Minimal reader for STORE-method zips: EOCD count, then local headers. No unzip library. */
 function readZip(zip: Uint8Array): { name: string; data: Uint8Array }[] {

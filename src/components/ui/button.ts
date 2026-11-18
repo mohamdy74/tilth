@@ -1,6 +1,4 @@
-import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
+import { cva } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
@@ -37,23 +35,8 @@ const buttonVariants = cva(
   },
 );
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
-  asChild?: boolean;
-}
-
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
-    return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
-    );
-  },
-);
-Button.displayName = "Button";
-
 /**
- * Canonical class sets for contexts where a <Button> component cannot be used
+ * Canonical class sets for contexts where a native <button> cannot be used
  * (e.g. router <Link>). Generated from the same cva variants — routes must
  * import these instead of re-declaring local button strings (audit TIL-F02).
  */
@@ -61,4 +44,4 @@ export const PRIMARY_BTN = cn(buttonVariants({ variant: "default" }));
 export const OUTLINE_BTN = cn(buttonVariants({ variant: "outline" }));
 export const DANGER_BTN = cn(buttonVariants({ variant: "destructive" }));
 
-export { Button, buttonVariants };
+export { buttonVariants };

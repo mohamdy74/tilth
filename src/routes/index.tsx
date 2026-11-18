@@ -11,7 +11,7 @@ import {
   Timer,
   Trophy,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { usePrefs } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { PriorityMark } from "@/components/app/PriorityMark";

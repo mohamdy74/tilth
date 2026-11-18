@@ -12,26 +12,23 @@ import {
   type BuyOutcome,
   type RefundOutcome,
 } from "./shop";
-import { awardXp, revokeXp, totalsFromLedger, type AwardEvent } from "./rewards";
+import { awardXp, revokeXp, type AwardEvent } from "./rewards";
 import { readAll, readKey, writeAll, writeKey, mergeValue } from "./storage/persistence";
 import {
   COLLECTION_KEYS,
   CURRENT_SCHEMA_VERSION,
   STORAGE_KEYS,
-  type AchievementUnlock,
   type CollectionKey,
   type FocusSession,
   type Habit,
   type HabitLog,
   type Meta,
   type Note,
-  type Purchase,
   type Settings,
   type SavedView,
   type ShopItem,
   type Snapshot,
   type StorageKey,
-  type SyncConflictEntry,
   type SyncSettings,
   type Task,
   type TaskViewFilter,
@@ -248,22 +245,6 @@ function setCollection<K extends CollectionKey>(key: K, fn: (list: Snapshot[K]) 
 export function todayLocal(): string {
   return toLocalDay(new Date(), useStore.getState().settings.dayStartHour, currentTimeZone());
 }
-
-const live = <T extends { deletedAt?: string | undefined }>(l: T[]) =>
-  l.filter((r) => !r.deletedAt);
-
-/* ---------------- selectors ---------------- */
-
-export const selectTasks = (s: StoreState) => live(s.tasks);
-export const selectHabits = (s: StoreState) => live(s.habits).filter((h) => !h.archived);
-export const selectHabitLogs = (s: StoreState) => live(s.habitLogs);
-export const selectFocusSessions = (s: StoreState) => live(s.focusSessions);
-export const selectXpLedger = (s: StoreState) => live(s.xpLedger);
-export const selectSettings = (s: StoreState) => s.settings;
-export const selectTotals = (s: StoreState) => {
-  const totals = totalsFromLedger(s.xpLedger);
-  return { xp: totals.xp, coins: totals.coins };
-};
 
 /* ---------------- rewards (single wiring point) ---------------- */
 

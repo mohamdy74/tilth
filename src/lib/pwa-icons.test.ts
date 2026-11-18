@@ -95,7 +95,7 @@ describe("scripts/icons.base64.json (the PNG source of truth)", () => {
   });
 
   it("decodes to valid PNGs of the declared dimensions", () => {
-    for (const [relPath, entry] of Object.entries(iconSource())) {
+    for (const entry of Object.values(iconSource())) {
       const bytes = Buffer.from(entry.base64, "base64");
       expect(bytes.length).toBe(entry.bytes);
       expect([...bytes.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
