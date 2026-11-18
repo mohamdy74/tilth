@@ -22,6 +22,10 @@ export default defineConfig({
     spa: { enabled: true },
   },
   vite: {
+    define: {
+      // Diagnostics stamp: lets a phone and a desktop prove which build they run.
+      __TILTH_BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace("T", " ")),
+    },
     plugins: [
       VitePWA({
         registerType: "prompt",

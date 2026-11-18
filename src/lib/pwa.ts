@@ -69,7 +69,13 @@ export function registerPwa(onNeedRefresh: () => void): Cleanup {
   if (document.readyState === "complete") start();
   else window.addEventListener("load", start, { once: true });
   document.addEventListener("visibilitychange", onVisible);
-  return () => document.removeEventListener("visibilitychange", onVisible);
+  // Long-lived installed sessions: notice new versions even without a
+  // visibility change (phone left open on a desk, kiosk-like usage).
+  const interval = window.setInterval(onVisible, 30 * 60_000);
+  return () => {
+    document.removeEventListener("visibilitychange", onVisible);
+    window.clearInterval(interval);
+  };
 }
 
 /**
@@ -107,4 +113,31 @@ export async function checkForUpdate(): Promise<"ready" | "current" | "unsupport
     /* offline: fall through to the waiting-worker check */
   }
   return reg.waiting && reg.active ? "ready" : "current";
+}
+
+/**
+ * Escape hatch for a stuck offline cache: drop the service worker and its
+ * precache, then reload from the network. App data lives in IndexedDB and is
+ * NEVER touched here — only CacheStorage and the worker registration.
+ * Resolves false where no worker/cache API exists (dev, preview, jsdom).
+ */
+export async function refreshAppFiles(): Promise<boolean> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+  if (typeof caches === "undefined") return false;
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map((r) => r.unregister()));
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+    // Nothing was cached/registered (dev, preview, fresh profile): there is
+    // nothing to refresh, so let the caller show the published-only hint.
+    return regs.length > 0 || keys.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Short build stamp injected at build time (vite define) for diagnostics. */
+export function buildStamp(): string {
+  return typeof __TILTH_BUILD__ !== "undefined" ? __TILTH_BUILD__ : "dev";
 }

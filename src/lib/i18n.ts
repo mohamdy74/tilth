@@ -231,6 +231,10 @@ const en = {
     upToDate: "You are on the latest version.",
     updatePublishedOnly: "Updates apply in the published app.",
     updateHint: "New versions arrive as a reload banner; your data stays on this device.",
+    refreshFiles: "Refresh app files",
+    refreshHint:
+      "Clears the offline cache and reloads from the network. Tasks, habits and notes are never touched.",
+    buildLabel: "Build",
     installed: "Installed",
     installBody: "Add Tilth to your home screen and use it full-screen — it works offline.",
     installUnsupported: 'You can install Tilth from your browser menu — look for "Install app".',
@@ -907,6 +911,10 @@ const ar: Dict = {
     upToDate: "أنت على أحدث إصدار.",
     updatePublishedOnly: "تُطبَّق التحديثات في التطبيق المنشور.",
     updateHint: "تصل الإصدارات الجديدة كشريط إعادة تحميل؛ بياناتك تبقى على هذا الجهاز.",
+    refreshFiles: "تحديث ملفات التطبيق",
+    refreshHint:
+      "يمسح ذاكرة العمل دون اتصال ويعيد التحميل من الشبكة. لا يمس المهام والعادات والملاحظات أبدًا.",
+    buildLabel: "إصدار",
     installed: "مثبّت",
     installBody: "أضف تيلث إلى شاشتك الرئيسية واستخدمه بملء الشاشة — يعمل بدون إنترنت.",
     installUnsupported: "يمكنك تثبيت تيلث من قائمة المتصفح — ابحث عن «تثبيت التطبيق».",

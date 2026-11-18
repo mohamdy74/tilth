@@ -28,7 +28,7 @@ import { BackupError, parseBackup, type ParsedBackup } from "@/lib/backup";
 import { buildZipExport, exportZipFileName } from "@/lib/exportZip";
 import { formatDate, formatNumber, type Locale } from "@/lib/i18n";
 import { toast } from "sonner";
-import { applyUpdate, checkForUpdate, isStandalone } from "@/lib/pwa";
+import { applyUpdate, buildStamp, checkForUpdate, isStandalone, refreshAppFiles } from "@/lib/pwa";
 import {
   exportSnapshot,
   flushAll,
@@ -321,6 +321,7 @@ function AppSection() {
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const onPrompt = (e: Event) => {
@@ -381,6 +382,31 @@ function AppSection() {
           {t.pwa.checkUpdate}
         </button>
         <p className="mt-2 text-xs text-muted-foreground">{t.pwa.updateHint}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={refreshing}
+            onClick={() => {
+              setRefreshing(true);
+              void refreshAppFiles().then((ok) => {
+                if (ok) {
+                  window.location.reload();
+                } else {
+                  setRefreshing(false);
+                  toast(t.pwa.updatePublishedOnly);
+                }
+              });
+            }}
+            className={OUTLINE_BTN + " px-3 py-1.5"}
+          >
+            <Download className={"size-4" + (refreshing ? " animate-spin" : "")} aria-hidden />
+            {t.pwa.refreshFiles}
+          </button>
+          <span className="chip font-mono text-[10px]" title={t.pwa.buildLabel}>
+            {t.pwa.buildLabel + " " + buildStamp()}
+          </span>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">{t.pwa.refreshHint}</p>
       </div>
     </fieldset>
   );
