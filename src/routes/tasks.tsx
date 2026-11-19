@@ -13,6 +13,7 @@ import {
   ListChecks,
   Plus,
   Repeat,
+  SkipForward,
   Search,
   Trash2,
   X,
@@ -25,7 +26,7 @@ import { PriorityMark } from "@/components/app/PriorityMark";
 import { Modal } from "@/components/app/Modal";
 import { DANGER_BTN, OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
 import { toast } from "sonner";
-import { weekdayOf } from "@/lib/dates";
+import { addDays, weekdayOf } from "@/lib/dates";
 import { formatDate, formatNumber, type Locale } from "@/lib/i18n";
 import { parseQuickAdd } from "@/lib/quickAdd";
 import { buildTaskViews } from "@/lib/taskViews";
@@ -220,6 +221,18 @@ function TasksPage() {
     }
     taskApi.remove(task.id);
     showToast(t.tasks.toasts.deleted, () => taskApi.restore(task.id));
+  };
+
+  const postponeTask = (task: Task) => {
+    const prev = task.dueDate;
+    const next = addDays(today, 1);
+    taskApi.update(task.id, { dueDate: next });
+    showToast(t.tasks.toasts.postponed, {
+      action: {
+        label: t.tasks.toasts.undo,
+        onClick: () => taskApi.update(task.id, { dueDate: prev }),
+      },
+    });
   };
 
   const removeInstance = () => {
@@ -509,6 +522,7 @@ function TasksPage() {
               onToggle={() => toggleDone(task)}
               onExpand={() => setExpandedId(expandedId === task.id ? null : task.id)}
               onDelete={() => removeTask(task)}
+              onPostpone={() => postponeTask(task)}
             />
           ))}
         </ul>
@@ -589,6 +603,7 @@ function TaskRow({
   onToggle,
   onExpand,
   onDelete,
+  onPostpone,
   cursor = false,
 }: {
   task: Task;
@@ -597,6 +612,7 @@ function TaskRow({
   onToggle: () => void;
   onExpand: () => void;
   onDelete: () => void;
+  onPostpone: () => void;
   cursor?: boolean;
 }) {
   const { t, locale } = usePrefs();
@@ -662,6 +678,14 @@ function TaskRow({
           className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-destructive"
         >
           <Trash2 className="size-4" aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={onPostpone}
+          aria-label={t.tasks.postpone}
+          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-primary"
+        >
+          <SkipForward className="size-4 rtl-flip" aria-hidden />
         </button>
       </div>
       {expanded && <TaskEditor task={task} today={today} onCollapse={onExpand} />}

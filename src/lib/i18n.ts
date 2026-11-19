@@ -94,9 +94,11 @@ const en = {
     moveUp: "Move up",
     moveDown: "Move down",
     column: { todo: "To do", doing: "Doing", done: "Done" },
+    postpone: "Postpone",
     toasts: {
       completed: "Task completed.",
       deleted: "Task deleted.",
+      postponed: "Task postponed.",
       seriesDeleted: "Series deleted.",
       undo: "Undo",
     },
@@ -815,9 +817,11 @@ const ar: Dict = {
     moveUp: "أعلى",
     moveDown: "أسفل",
     column: { todo: "للتنفيذ", doing: "جارٍ", done: "منجزة" },
+    postpone: "تأجيل",
     toasts: {
       completed: "تم إنجاز المهمة.",
       deleted: "تم حذف المهمة.",
+      postponed: "تم تأجيل المهمة.",
       seriesDeleted: "تم حذف السلسلة.",
       undo: "تراجع",
     },
