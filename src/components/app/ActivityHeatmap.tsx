@@ -334,7 +334,11 @@ export function ActivityHeatmap({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+      <p className="mt-3 text-sm font-medium tabular-nums" aria-live="polite">
+        {summary}
+      </p>
+
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
           <span
             aria-hidden="true"
