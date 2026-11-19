@@ -1,5 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { nextFocusDay } from "./ActivityHeatmap";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ActivityHeatmap, nextFocusDay } from "./ActivityHeatmap";
+import { PreferencesProvider } from "./preferences";
+import { HEAT_CELL, HEAT_GAP } from "@/lib/layoutConstants";
+
+const empty = {
+  tasks: [],
+  habits: [],
+  habitLogs: [],
+  focusSessions: [],
+};
+
+function render(today: string, weekStartsOn: number): string {
+  return renderToStaticMarkup(
+    <PreferencesProvider>
+      <ActivityHeatmap
+        {...empty}
+        today={today}
+        weekStartsOn={weekStartsOn}
+        dayStartHour={0}
+        timeZone="UTC"
+      />
+    </PreferencesProvider>,
+  );
+}
 
 // ---------------- T1: pure month grid ----------------
 
@@ -134,6 +158,71 @@ describe("T2: month options", () => {
   });
 });
 
+// ---------------- T3: SSR render ----------------
+
+describe("T3: SSR render (renderToStaticMarkup)", () => {
+  it("cell 28px x 28px via inline style", () => {
+    const html = render("2026-12-15", 6);
+    expect(html).toContain("w-[28px]");
+    expect(html).toContain("h-[28px]");
+  });
+
+  it("grid-template-columns repeat(cols,28px), rows repeat(7,28px), gap 6px", () => {
+    const html = render("2026-12-15", 6);
+    expect(html).toContain("grid-template-columns:repeat(5, 28px)");
+    expect(html).toContain("grid-template-rows:repeat(7, 28px)");
+    expect(html).toContain("gap:6px");
+  });
+
+  it("width = cols*28+(cols-1)*6 (5 cols -> 164px)", () => {
+    const html = render("2026-12-15", 6);
+    expect(html).toContain("width:164px");
+  });
+
+  it("height = 232px", () => {
+    const html = render("2026-12-15", 6);
+    expect(html).toContain("height:232px");
+  });
+
+  it("exactly one data-hm-block with data-cols", () => {
+    const html = render("2026-12-15", 6);
+    const matches = html.match(/data-hm-block/g);
+    expect(matches).toHaveLength(1);
+    expect(html).toContain('data-cols="5"');
+  });
+
+  it("cell count = days in month (31 for Dec), future days included with aria-hidden", () => {
+    const html = render("2026-12-15", 6);
+    const cellMatches = html.match(/data-hm-cell/g);
+    expect(cellMatches).toHaveLength(31);
+    expect(html).toContain("aria-hidden");
+  });
+
+  it("each cell style references var(--hm-outline)", () => {
+    const html = render("2026-12-15", 6);
+    expect(html).toContain("var(--hm-outline)");
+  });
+
+  it("legend has 5 swatches of 16px and NO digits in legend text", () => {
+    const html = render("2026-12-15", 6);
+    const levelSwatches = html.match(/w-\[16px\][^>]*bg-/g);
+    expect(levelSwatches).toHaveLength(5);
+    const legendRight = html.match(
+      /<div class="flex items-center gap-1\.5 text-right"[^>]*>(.*?)<\/div>/s,
+    )?.[1] ?? "";
+    const textNodes = legendRight.match(/>([^<]+)</g) ?? [];
+    const textContent = textNodes.join("");
+    expect(/[0-9]/.test(textContent)).toBe(false);
+    expect(/[٠-٩]/.test(textContent)).toBe(false);
+  });
+
+  it("root dir=ltr", () => {
+    const html = render("2026-12-15", 6);
+    expect(html).toContain('data-hm-root="true"');
+    expect(html).toContain('dir="ltr"');
+  });
+});
+
 // ---------------- T4: keyboard pure function ----------------
 
 describe("T4: nextFocusDay keyboard navigation", () => {
@@ -174,5 +263,14 @@ describe("T4: nextFocusDay keyboard navigation", () => {
 
   it("unknown key returns null", () => {
     expect(nextFocusDay("2026-12-10", "PageDown" as any, today, dim)).toBe(null);
+  });
+});
+
+// ---------------- T5: mutation test ----------------
+
+describe("T5: mutation test (HEAT_CELL / HEAT_GAP)", () => {
+  it("constants are 28 and 6 (baseline for mutation)", () => {
+    expect(HEAT_CELL).toBe(28);
+    expect(HEAT_GAP).toBe(6);
   });
 });

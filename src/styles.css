@@ -45,6 +45,11 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
+  --hm-outline: color-mix(in oklab, var(--color-foreground) 16%, transparent);
+  --hm-l1: color-mix(in oklab, var(--color-accent) 35%, var(--color-card));
+  --hm-l2: color-mix(in oklab, var(--color-accent) 55%, var(--color-card));
+  --hm-l3: color-mix(in oklab, var(--color-accent) 75%, var(--color-card));
+  --hm-l4: color-mix(in oklab, var(--color-accent) 100%, var(--color-card));
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
