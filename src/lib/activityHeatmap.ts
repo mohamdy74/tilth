@@ -43,8 +43,9 @@ export function activityLevel(count: number): number {
   return 4;
 }
 
-/** Aggregate all activity into a per-day count map. */
-function activityCounts(
+/** Aggregate all activity into a per-day count map. Covers ALL history
+ * (no 364-day slice) — callers decide the window. */
+export function activityCounts(
   tasks: Task[],
   habits: Habit[],
   habitLogs: HabitLog[],

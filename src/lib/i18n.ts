@@ -748,7 +748,7 @@ const en = {
   heatmap: {
     title: "Activity",
     subtitle: "Daily activity from completed tasks, habits and focus sessions.",
-    summary: "{total} activities · {days} active days in the past year",
+    summaryMonth: "{total} · {days} active days in {month}",
     activityCount: {
       zero: "No activity",
       one: "{n} activity",
@@ -757,12 +757,10 @@ const en = {
       many: "{n} activities",
       other: "{n} activities",
     },
-    activities: "activities",
-    activeDays: "active days",
-    zero: "0",
     today: "Today",
     less: "Less",
     more: "More",
+    monthDropdown: "Month",
   },
 };
 
@@ -1486,7 +1484,7 @@ const ar: Dict = {
   heatmap: {
     title: "النشاط",
     subtitle: "نشاطك اليومي من المهام والعادات وجلسات التركيز المكتملة.",
-    summary: "{total} نشاطًا · {days} أيام نشطة خلال السنة الماضية",
+    summaryMonth: "{total} · {days} أيام نشطة في {month}",
     activityCount: {
       zero: "لا نشاط",
       one: "نشاط واحد",
@@ -1495,12 +1493,10 @@ const ar: Dict = {
       many: "{n} نشاطًا",
       other: "{n} نشاط",
     },
-    activities: "أنشطة",
-    activeDays: "أيام نشطة",
-    zero: "٠",
     today: "اليوم",
     less: "أقل",
     more: "أكثر",
+    monthDropdown: "الشهر",
   },
 };
 
