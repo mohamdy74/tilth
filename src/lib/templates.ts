@@ -73,7 +73,7 @@ export const HABIT_TEMPLATES: HabitTemplate[] = [
     name: { ar: "روتين الصباح", en: "Morning routine" },
     schedule: { type: "daily", days: [0, 1, 2, 3, 4, 5, 6] },
     description: {
-      ar: "عادة صغيرة تبدأ بها يومك،마다 يوم.",
+      ar: "عادة صغيرة تبدأ بها يومك.",
       en: "One small habit to start every day.",
     },
   },
@@ -124,7 +124,7 @@ export function templateFor(
 export function habitTemplateFor(
   id: string,
   locale: TemplateLocale,
-): Omit<HabitTemplate, "name" | "description"> & { name: string; description: string } | null {
+): (Omit<HabitTemplate, "name" | "description"> & { name: string; description: string }) | null {
   const tpl = HABIT_TEMPLATES.find((t) => t.id === id);
   if (!tpl) return null;
   return {

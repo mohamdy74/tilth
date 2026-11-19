@@ -166,7 +166,7 @@ export function ActivityHeatmap({
   const options = useMemo(() => monthOptions(today, counts), [counts, today]);
   const currentKey = today.slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState<string>(() =>
-    options.includes(currentKey) ? currentKey : options[0] ?? currentKey,
+    options.includes(currentKey) ? currentKey : (options[0] ?? currentKey),
   );
   if (!options.includes(selectedMonth)) {
     setSelectedMonth(currentKey);
@@ -229,7 +229,13 @@ export function ActivityHeatmap({
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
           <span className="text-primary" aria-hidden>
-            <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              className="size-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v1" />
             </svg>
           </span>
@@ -305,12 +311,8 @@ export function ActivityHeatmap({
                 type="button"
                 data-hm-cell
                 data-day={c.day}
-                aria-label={
-                  dateLabel + " — " + countLabel + (isToday ? " — " + t.heatmap.today : "")
-                }
-                title={
-                  dateLabel + " — " + countLabel + (isToday ? " — " + t.heatmap.today : "")
-                }
+                aria-label={dateLabel + " — " + countLabel + (isToday ? " — " + t.heatmap.today : "")}
+                title={dateLabel + " — " + countLabel + (isToday ? " — " + t.heatmap.today : "")}
                 disabled={!isInteractive}
                 aria-hidden={c.isFuture ? "true" : undefined}
                 tabIndex={isInteractive ? 0 : -1}
@@ -351,8 +353,7 @@ export function ActivityHeatmap({
               height: HEAT_LEGEND_CELL + "px",
               borderRadius: HEAT_RADIUS + "px",
               backgroundColor: "var(--color-card)",
-              boxShadow:
-                "0 0 0 2px var(--color-accent), inset 0 0 0 1px var(--hm-outline)",
+              boxShadow: "0 0 0 2px var(--color-accent), inset 0 0 0 1px var(--hm-outline)",
             }}
           />
           {t.heatmap.today}

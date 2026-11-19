@@ -107,7 +107,7 @@ function monthOptionsPure(today: string, counts: Map<string, number>): string[] 
     out.push(cursor);
     const parts = cursor.split("-");
     const y = Number(parts[0]!);
-    let m = Number(parts[1]!);
+    const m = Number(parts[1]!);
     let prevY = y;
     let prevM = m - 1;
     if (prevM < 1) {
@@ -130,7 +130,12 @@ describe("T2: month options", () => {
     const c = countsFor(["2025-12-14", "2026-01-01"]);
     const opts = monthOptionsPure("2026-11-19", c);
     expect(opts).toEqual([
-      "2026-11", "2026-10", "2026-09", "2026-08", "2026-07", "2026-06",
+      "2026-11",
+      "2026-10",
+      "2026-09",
+      "2026-08",
+      "2026-07",
+      "2026-06",
       "2026-05",
       "2026-04",
       "2026-03",
