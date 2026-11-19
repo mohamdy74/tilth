@@ -679,12 +679,14 @@ function HeatmapPanel({
 }) {
   const { t, locale } = usePrefs();
   // Day order within each week column, starting at the week's first day.
-  const weekdayOrder = [...Array(HEAT_DAYS)].map((_, i) => (weekStartsOn + i) % HEAT_DAYS);
-  const weekdayLabel = (d: number) =>
+  // Each column is a vertical stack of 7 cells; index j maps to weekday
+  // (weekStartsOn + j) % 7, matching heatmap cell layout (oldest-first).
+  const weekdayOrder = [...Array(HEAT_DAYS)].map((_, i) => i);
+  const weekdayLabel = (j: number) =>
     new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", {
       weekday: "narrow",
       timeZone: "UTC",
-    }).format(new Date(Date.UTC(2023, 0, 1 + d)));
+    }).format(new Date(Date.UTC(2023, 0, 1 + ((weekStartsOn + j) % HEAT_DAYS))));
   const levelCls = (level: number) => {
     switch (level) {
       case 1:
@@ -699,7 +701,6 @@ function HeatmapPanel({
         return "bg-muted/20";
     }
   };
-  const byDay = new Map(heatmap.map((c) => [c.day, c]));
   const weekCount = Math.ceil(heatmap.length / HEAT_DAYS);
 
   return (
@@ -714,17 +715,18 @@ function HeatmapPanel({
       </div>
       <p className="mb-3 text-xs text-muted-foreground">{t.heatmap.subtitle}</p>
       <div className="mt-2 flex items-end gap-1">
-        {weekdayOrder.map((d) => (
-          <span key={d} className="w-[16px] shrink-0 text-[10px] text-muted-foreground text-center">
-            {weekdayLabel(d)}
+        {weekdayOrder.map((j) => (
+          <span key={j} className="w-[16px] shrink-0 text-[10px] text-muted-foreground text-center">
+            {weekdayLabel(j)}
           </span>
         ))}
       </div>
       <div className="mt-1 flex gap-0.5">
         {Array.from({ length: weekCount }).map((_, wi) => (
           <div key={wi} className="flex flex-col gap-0.5">
-            {weekdayOrder.map((dOffset) => {
-              const cell = heatmap[wi * HEAT_DAYS + dOffset];
+            {weekdayOrder.map((j) => {
+              const cell = heatmap[wi * HEAT_DAYS + j];
+              const weekday = (weekStartsOn + j) % HEAT_DAYS;
               const isToday = cell.day === today;
               return (
                 <span
@@ -736,7 +738,7 @@ function HeatmapPanel({
                     " — " +
                     cell.count +
                     " " +
-                    t.review.tasks
+                    t.heatmap.activities
                   }
                   className={`size-4 rounded shrink-0 ${levelCls(cell.level)} ${
                     isToday ? "ring-1 ring-accent" : ""
@@ -749,9 +751,9 @@ function HeatmapPanel({
       </div>
       <p className="mt-2 text-xs text-muted-foreground tabular-nums">
         <span className="w-[16px] h-[16px] rounded bg-muted/20 inline-block mr-1.5" />
-        {t.review.noActivity}
+        {t.heatmap.less}
         <span className="ml-3 w-[16px] h-[16px] rounded bg-accent/80 inline-block mr-1.5" />
-        {t.review.mostActivity}
+        {t.heatmap.more}
       </p>
     </div>
   );

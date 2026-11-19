@@ -748,8 +748,9 @@ const en = {
   heatmap: {
     title: "Activity",
     subtitle: "Completed tasks, done habits and finished focus sessions — one cell per day.",
-    noActivity: "Less",
-    mostActivity: "More",
+    activities: "activities",
+    less: "Less",
+    more: "More",
   },
 };
 
@@ -1473,8 +1474,9 @@ const ar: Dict = {
   heatmap: {
     title: "النشاط",
     subtitle: "المهام المكتملة والعادات المنجزة وجلسات التركيز المنتهية — خلية لكل يوم.",
-    noActivity: "أقل",
-    mostActivity: "أكثر",
+    activities: "أنشطة",
+    less: "أقل",
+    more: "أكثر",
   },
 };
 
