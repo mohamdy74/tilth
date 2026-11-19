@@ -41,11 +41,11 @@ use the editor.
 - No hardcoded colors in components; all colors are oklch tokens in `src/styles.css`. Accent is driven by `--accent-hue` so themes can swap it.
 - Fonts are self-hosted via @fontsource (no CDN) so they work offline.
 
-## Data rules (schema v4)
+## Data rules (schema v5)
 
 - `localDay` is stored at creation time and never recomputed afterwards. A record's
   localDay must survive later changes of timezone or `dayStartHour`.
-- `meta.schemaVersion` is 4 (`CURRENT_SCHEMA_VERSION` in `src/lib/types.ts`). Any
+- `meta.schemaVersion` is 5 (`CURRENT_SCHEMA_VERSION` in `src/lib/types.ts`). Any
   stored-shape change bumps it and adds one entry to the ordered `migrations`
   array in `src/lib/migrations.ts` (index = from-version); migrations run on boot
   and on import. Exception: ADDITIVE OPTIONAL fields (absent in old records,
@@ -163,7 +163,7 @@ use the editor.
 
 ## Notes page (/notes)
 
-- Notes are free-form Markdown records in the `notes` collection (schema v4,
+- Notes are free-form Markdown records in the `notes` collection (schema v5,
   additive migration): `title` + `body` (plain Markdown text), optional
   `linkedTaskId`, optional `pinned`. Notes sit OUTSIDE the XP economy — no
   reward events, no ledger entries; `applyRewardEvent` is never called for
