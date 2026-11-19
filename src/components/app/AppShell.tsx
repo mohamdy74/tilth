@@ -457,13 +457,8 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
         label: t.command.newTask,
         icon: Plus,
         run: () => {
-          try {
-            window.sessionStorage.setItem("tilth.new-task", "1");
-          } catch {
-            /* ignore */
-          }
           onClose();
-          navigate({ to: "/tasks" });
+          setCaptureOpen(true);
         },
       },
       {
