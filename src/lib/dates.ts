@@ -124,3 +124,11 @@ export function daysBetween(a: LocalDay, b: LocalDay): number {
 export function defaultWeekStartsOn(language: "en" | "ar"): number {
   return language === "ar" ? 6 : 1;
 }
+
+/** Keeps imported or legacy week-start preferences inside the calendar range. */
+export function normalizeWeekStartsOn(value: unknown, fallback: number): number {
+  const safeFallback = Number.isInteger(fallback) && fallback >= 0 && fallback <= 6 ? fallback : 1;
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 6
+    ? value
+    : safeFallback;
+}

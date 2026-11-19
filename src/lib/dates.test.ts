@@ -6,6 +6,7 @@ import {
   endOfMonth,
   endOfWeek,
   isValidTimestamp,
+  normalizeWeekStartsOn,
   startOfMonth,
   startOfWeek,
   toLocalDay,
@@ -57,6 +58,14 @@ describe("day arithmetic", () => {
   it("addMonths clamps to month end", () => {
     expect(addMonths("2026-01-31", 1)).toBe("2026-02-28");
     expect(addMonths("2028-01-31", 1)).toBe("2028-02-29");
+  });
+});
+
+describe("normalizeWeekStartsOn", () => {
+  it("preserves valid week starts and falls back for malformed settings", () => {
+    expect(normalizeWeekStartsOn(6, 1)).toBe(6);
+    expect(normalizeWeekStartsOn(undefined, 6)).toBe(6);
+    expect(normalizeWeekStartsOn(7, 6)).toBe(6);
   });
 });
 

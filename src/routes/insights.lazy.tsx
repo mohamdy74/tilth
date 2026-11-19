@@ -25,7 +25,7 @@ import {
 import { usePrefs } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Segmented } from "@/components/app/Segmented";
-import { addDays, currentTimeZone } from "@/lib/dates";
+import { addDays, currentTimeZone, defaultWeekStartsOn, normalizeWeekStartsOn } from "@/lib/dates";
 import { formatDate, formatNumber } from "@/lib/i18n";
 import {
   focusMinutesByDay,
@@ -73,7 +73,8 @@ function InsightsPage() {
   const focusSessions = useStore((s) => s.focusSessions);
   const xpLedger = useStore((s) => s.xpLedger);
   const dayStartHour = useStore((s) => s.settings.dayStartHour);
-  const weekStartsOn = useStore((s) => s.settings.weekStartsOn);
+  const savedWeekStartsOn = useStore((s) => s.settings.weekStartsOn);
+  const weekStartsOn = normalizeWeekStartsOn(savedWeekStartsOn, defaultWeekStartsOn(locale));
   const targetMinutes = useStore((s) => s.settings.dailyFocusTargetMinutes);
   const [range, setRange] = useState<"weekly" | "monthly">("weekly");
 
@@ -331,7 +332,7 @@ function InsightsPage() {
       <AggregatePanels />
 
       <TimeAllocationPanel allocation={allocationSeries} />
-      <HeatmapPanel heatmap={heatmapSeries} today={today} />
+      <HeatmapPanel heatmap={heatmapSeries} today={today} weekStartsOn={weekStartsOn} />
 
       <ObservationsPanel report={report} />
     </section>
@@ -470,7 +471,8 @@ function ReviewPanel() {
   const habitLogs = useStore((s) => s.habitLogs);
   const focusSessions = useStore((s) => s.focusSessions);
   const xpLedger = useStore((s) => s.xpLedger);
-  const weekStartsOn = useStore((s) => s.settings.weekStartsOn);
+  const savedWeekStartsOn = useStore((s) => s.settings.weekStartsOn);
+  const weekStartsOn = normalizeWeekStartsOn(savedWeekStartsOn, defaultWeekStartsOn(locale));
   const dayStartHour = useStore((s) => s.settings.dayStartHour);
   const review = weeklyReview({
     tasks,
@@ -678,6 +680,10 @@ function HeatmapPanel({
   weekStartsOn: number;
 }) {
   const { t, locale } = usePrefs();
+  const safeWeekStartsOn =
+    Number.isInteger(weekStartsOn) && weekStartsOn >= 0 && weekStartsOn < HEAT_DAYS
+      ? weekStartsOn
+      : 0;
   // Day order within each week column, starting at the week's first day.
   // Each column is a vertical stack of 7 cells; index j maps to weekday
   // (weekStartsOn + j) % 7, matching heatmap cell layout (oldest-first).
@@ -686,7 +692,7 @@ function HeatmapPanel({
     new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", {
       weekday: "narrow",
       timeZone: "UTC",
-    }).format(new Date(Date.UTC(2023, 0, 1 + ((weekStartsOn + j) % HEAT_DAYS))));
+    }).format(new Date(Date.UTC(2023, 0, 1 + ((safeWeekStartsOn + j) % HEAT_DAYS))));
   const levelCls = (level: number) => {
     switch (level) {
       case 1:
@@ -726,7 +732,7 @@ function HeatmapPanel({
           <div key={wi} className="flex flex-col gap-0.5">
             {weekdayOrder.map((j) => {
               const cell = heatmap[wi * HEAT_DAYS + j];
-              const weekday = (weekStartsOn + j) % HEAT_DAYS;
+              if (!cell) return null;
               const isToday = cell.day === today;
               return (
                 <span
@@ -793,7 +799,7 @@ function TimeAllocationPanel({ allocation }: { allocation: DayAllocation[] }) {
           ))}
           <div className="mt-2 flex justify-between text-xs text-muted-foreground tabular-nums">
             <span>
-              {t.review.focusMinutes}: {formatNumber(locale, totalFocus)} min
+              {t.review.focus}: {formatNumber(locale, totalFocus)}
             </span>
             <span>
               {t.review.tasks}: {formatNumber(locale, totalTasks)} done

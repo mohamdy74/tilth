@@ -144,6 +144,19 @@ describe("insights series", () => {
       }).every((point) => point.value === 0),
     ).toBe(true);
     expect(() => insightsReport({ ...empty, tasks })).not.toThrow();
+    expect(() =>
+      weeklyReview({
+        tasks,
+        habits: [],
+        habitLogs: [],
+        focusSessions: [],
+        xpLedger: [],
+        today: TODAY,
+        weekStartsOn: 1,
+        dayStartHour: 0,
+        timeZone: TZ,
+      }),
+    ).not.toThrow();
   });
 
   it("respects dayStartHour: a 03:30 wall-clock completion belongs to the previous day", () => {
