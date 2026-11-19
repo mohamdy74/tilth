@@ -29,6 +29,7 @@ import { weekdayOf } from "@/lib/dates";
 import { formatDate, formatNumber, type Locale } from "@/lib/i18n";
 import { parseQuickAdd } from "@/lib/quickAdd";
 import { buildTaskViews } from "@/lib/taskViews";
+import { TASK_TEMPLATES, taskTemplateFor } from "@/lib/templates";
 import { tasks as taskApi, views as viewsApi, todayLocal, useStore } from "@/lib/store";
 import type { Priority, RecurrenceRule, Task, TaskBucket, TaskSort, TaskStatus } from "@/lib/types";
 
@@ -74,7 +75,15 @@ function TasksPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const [draft, setDraft] = useState("");
+  const [taskTemplateId, setTaskTemplateId] = useState<string | "">("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const applyTaskTemplate = (id: string) => {
+    const tpl = taskTemplateFor(id, locale);
+    if (!tpl) return;
+    setDraft(tpl.title);
+    setTaskTemplateId(id);
+  };
 
   // Palette handoffs: "New task" focuses quick-add; content search (TIL-F07)
   // jumps to a task — filters reset, owning view bucket selected, row expanded
@@ -270,6 +279,27 @@ function TasksPage() {
         lede={live.length === 0 ? t.pages.tasks.body : undefined}
       />
 
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <p className="text-xs font-medium text-muted-foreground">{t.template.title}</p>
+        {TASK_TEMPLATES.map((tpl) => {
+          const selected = taskTemplateId === tpl.id;
+          return (
+            <button
+              key={tpl.id}
+              type="button"
+              onClick={() => applyTaskTemplate(tpl.id)}
+              className={
+                "h-8 rounded-md border px-2.5 text-xs font-medium transition-colors " +
+                (selected
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:border-primary hover:text-foreground")
+              }
+            >
+              {tpl.title[locale]}
+            </button>
+          );
+        })}
+      </div>
       <form
         className="mt-6 flex items-center gap-2 rounded-xl border border-border bg-card p-2"
         onSubmit={(e) => {

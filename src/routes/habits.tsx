@@ -30,6 +30,7 @@ import {
   logsByDay,
   type DayKind,
 } from "@/lib/streaks";
+import { HABIT_TEMPLATES, habitTemplateFor } from "@/lib/templates";
 import type { Habit, HabitLog, HabitSchedule, LocalDay } from "@/lib/types";
 
 export const Route = createFileRoute("/habits")({
@@ -309,11 +310,21 @@ function NewHabitForm({
   onAdd: (name: string, schedule: HabitSchedule) => void;
   onCancel: () => void;
 }) {
-  const { t } = usePrefs();
+  const { t, locale } = usePrefs();
   const [name, setName] = useState("");
   const [type, setType] = useState<HabitSchedule["type"]>("daily");
   const [days, setDays] = useState<number[]>([1, 3, 5]);
+  const [templateId, setTemplateId] = useState<string | "">("");
   const valid = name.trim() !== "" && (type === "daily" || days.length > 0);
+
+  const applyTemplate = (id: string) => {
+    const tpl = habitTemplateFor(id, locale);
+    if (!tpl) return;
+    setName(tpl.name);
+    setType(tpl.schedule.type);
+    setDays([...tpl.schedule.days]);
+    setTemplateId(id);
+  };
   return (
     <form
       className="mt-4 space-y-3 rounded-xl border border-border bg-card p-4"
@@ -335,6 +346,27 @@ function NewHabitForm({
         aria-label={t.habits.nameLabel}
         className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none"
       />
+      <p className="mt-3 text-xs font-medium text-muted-foreground">{t.template.title}</p>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {HABIT_TEMPLATES.map((tpl) => {
+          const selected = templateId === tpl.id;
+          return (
+            <button
+              key={tpl.id}
+              type="button"
+              onClick={() => applyTemplate(tpl.id)}
+              className={
+                "h-8 rounded-md border px-2.5 text-xs font-medium transition-colors " +
+                (selected
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:border-primary hover:text-foreground")
+              }
+            >
+              {tpl.name[locale]}
+            </button>
+          );
+        })}
+      </div>
       <Segmented
         options={[
           { value: "daily", label: t.habits.scheduleType.daily },

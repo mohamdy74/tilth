@@ -20,6 +20,7 @@ import { PRIMARY_BTN } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDate, formatNumber } from "@/lib/i18n";
 import { buildDayPlan, formatClock, layoutDayPlan, type PlanBlock } from "@/lib/plan";
+import { suggestTaskStart } from "@/lib/energy";
 import { habits as habitApi, tasks as taskApi, todayLocal, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/plan")({
@@ -115,6 +116,29 @@ function PlanPage() {
     () => new Set(allTasks.filter((x) => x.blockStart !== undefined).map((x) => x.id)),
     [allTasks],
   );
+
+  const openHigh = useMemo(
+    () =>
+      allTasks.filter(
+        (x) =>
+          !x.deletedAt &&
+          x.status !== "done" &&
+          x.priority === "high" &&
+          !x.blockStart &&
+          (x.dueDate === undefined || x.dueDate <= today),
+      ),
+    [allTasks, today],
+  );
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const suggestion = useMemo(() => {
+    if (openHigh.length === 0) return undefined;
+    return suggestTaskStart(openHigh[0], allTasks, {
+      today,
+      days: 28,
+      dayStartHour: settings.dayStartHour,
+      timeZone: tz,
+    });
+  }, [openHigh, allTasks, settings.dayStartHour, today, tz]);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const didScroll = useRef(false);
@@ -226,6 +250,32 @@ function PlanPage() {
           plan.overflowTasks.length > 0 ? t.plan.overflowHint : hasItems ? t.plan.body : undefined
         }
       />
+
+      {suggestion && (
+        <div className="mt-4 panel flex items-center gap-3 p-3">
+          <Clock className="size-5 shrink-0 text-primary" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="text-sm font-medium">{t.energy.title}</span>
+            <span className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              {openHigh[0].title}
+              <span className="inline-flex items-center gap-1 rounded border border-accent/40 px-2 py-0.5 text-[11px] text-accent">
+                {suggestion.label}
+              </span>
+            </span>
+            <p className="mt-1 text-xs text-muted-foreground">{t.energy.hint}</p>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              taskApi.update(suggestion.taskId, { blockStart: suggestion.startMinute });
+              toast(t.plan.pinned);
+            }}
+            className={PRIMARY_BTN + " px-3 py-1.5"}
+          >
+            {t.energy.button.replace("{time}", suggestion.label)}
+          </button>
+        </div>
+      )}
 
       {!hasItems ? (
         <div className="panel mt-2 px-6 py-10 text-center">

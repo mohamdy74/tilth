@@ -29,7 +29,8 @@ import {
   workCompletedToday,
   workMinutesToday,
 } from "@/lib/focusTime";
-import type { FocusSession } from "@/lib/types";
+import { distractionsByDay } from "@/lib/distractionReview";
+import type { FocusSession, Task } from "@/lib/types";
 import { startAmbience, stopAmbience, type AmbienceKind } from "@/lib/ambience";
 
 export const Route = createFileRoute("/focus")({
@@ -49,6 +50,8 @@ export const Route = createFileRoute("/focus")({
   }),
   component: FocusPage,
 });
+
+const PRIORITY_RANK: Record<Task["priority"], number> = { high: 0, medium: 1, low: 2 };
 
 function FocusPage() {
   const { t, locale } = usePrefs();
@@ -218,6 +221,22 @@ function FocusPage() {
     [allTasks],
   );
 
+  // Suggest the top-priority open task as the session’s link — a draft the
+  // user accepts by tapping; nothing is linked automatically.
+  const suggestedTask = useMemo(() => {
+    if (openTasks.length === 0) return undefined;
+    return [...openTasks].sort(
+      (a, b) =>
+        PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
+        (a.dueDate ?? "").localeCompare(b.dueDate ?? ""),
+    )[0];
+  }, [openTasks]);
+
+  const distractionByDay = useMemo(
+    () => distractionsByDay(liveSessions, today),
+    [liveSessions, today],
+  );
+
   if (!ready) return <FocusSkeleton />;
 
   const pct = target <= 0 ? 0 : Math.min(100, Math.round((doneMinutes / target) * 100));
@@ -333,6 +352,18 @@ function FocusPage() {
               ))}
             </select>
           </label>
+          {suggestedTask && linkedTaskId === "" && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{t.focus.linkSuggest}</span>
+              <button
+                type="button"
+                onClick={() => setLinkedTaskId(suggestedTask.id)}
+                className="text-xs text-primary underline-offset-2 hover:underline"
+              >
+                {suggestedTask.title}
+              </button>
+            </div>
+          )}
           {breakReady !== null ? (
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" onClick={startBreakSession} className={PRIMARY_BTN}>
@@ -351,6 +382,42 @@ function FocusPage() {
             </button>
           )}
           <p className="text-xs text-muted-foreground">{t.focus.notifications}</p>
+        </div>
+      )}
+
+      {distractionByDay.some((d) => d.count > 0) && (
+        <div className="mt-6 panel p-4">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            {t.distraction.title}
+          </h3>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {distractionByDay.map((d) => {
+              const cls =
+                d.count === 0
+                  ? "border-border/40 bg-transparent"
+                  : d.count <= 2
+                    ? "border-warning/40 bg-warning/30"
+                    : "border-destructive/40 bg-destructive/30";
+              return (
+                <span
+                  key={d.day}
+                  title={
+                    formatDate(locale, new Date(d.day + "T12:00:00Z"), { dateStyle: "medium" }) +
+                    ": " +
+                    d.count +
+                    " " +
+                    t.distraction.label
+                  }
+                  className={
+                    "size-6 shrink-0 rounded border flex items-center justify-center text-[10px] tabular-nums text-muted-foreground " +
+                    cls
+                  }
+                >
+                  {d.count}
+                </span>
+              );
+            })}
+          </div>
         </div>
       )}
 

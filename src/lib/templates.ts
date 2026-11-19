@@ -1,4 +1,4 @@
-import type { Settings } from "./types";
+import type { HabitSchedule, RecurrenceRule, Settings, Task } from "./types";
 
 export type TemplateId = "study" | "freelance" | "content" | "ramadan";
 export type TemplateLocale = Settings["language"];
@@ -7,6 +7,22 @@ export interface NoteTemplate {
   id: TemplateId;
   title: Record<TemplateLocale, string>;
   body: Record<TemplateLocale, string>;
+}
+
+export interface HabitTemplate {
+  id: string;
+  name: Record<TemplateLocale, string>;
+  schedule: HabitSchedule;
+  description: Record<TemplateLocale, string>;
+}
+
+export interface TaskTemplate {
+  id: string;
+  title: Record<TemplateLocale, string>;
+  notes?: Record<TemplateLocale, string>;
+  priority?: Task["priority"];
+  tags?: string[];
+  recurrence?: RecurrenceRule;
 }
 
 /*
@@ -49,6 +65,51 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
   },
 ];
 
+/** Bounded habit templates — one-tap starts that keep the system small
+ * (one habit at a time, forgiving schedules). */
+export const HABIT_TEMPLATES: HabitTemplate[] = [
+  {
+    id: "morning",
+    name: { ar: "روتين الصباح", en: "Morning routine" },
+    schedule: { type: "daily", days: [0, 1, 2, 3, 4, 5, 6] },
+    description: {
+      ar: "عادة صغيرة تبدأ بها يومك،마다 يوم.",
+      en: "One small habit to start every day.",
+    },
+  },
+  {
+    id: "deep",
+    name: { ar: "بلوك العمل المركّز", en: "Deep work block" },
+    schedule: { type: "custom", days: [1, 2, 3, 4, 5] },
+    description: {
+      ar: "وقت محمي للعمل العميق في أيام الأسبوع.",
+      en: "Protected deep-work time on weekdays.",
+    },
+  },
+];
+
+/** Bounded task templates — pre-filled recurring or one-off tasks. */
+export const TASK_TEMPLATES: TaskTemplate[] = [
+  {
+    id: "focus",
+    title: { ar: "جلسة عمل مركّزة", en: "Deep work session" },
+    notes: {
+      ar: "أغلق الإشعارات واعمل على مهمة واحدة.",
+      en: "Silence notifications, one task at a time.",
+    },
+    priority: "high",
+    tags: ["focus"],
+  },
+  {
+    id: "review",
+    title: { ar: "مراجعة الأسبوع", en: "Weekly review" },
+    notes: { ar: "ماذا أنجزت؟ ماذا يؤجل؟", en: "What got done? What got postponed?" },
+    priority: "medium",
+    tags: ["review"],
+    recurrence: { freq: "weekly", interval: 1, byWeekday: [1] },
+  },
+];
+
 /** The template copy for the asked locale, or null for unknown ids. */
 export function templateFor(
   id: string,
@@ -57,4 +118,26 @@ export function templateFor(
   const tpl = NOTE_TEMPLATES.find((t) => t.id === id);
   if (!tpl) return null;
   return { title: tpl.title[locale], body: tpl.body[locale] };
+}
+
+/** Habit template copy for the asked locale, or null for unknown ids. */
+export function habitTemplateFor(id: string, locale: TemplateLocale): HabitTemplate | null {
+  const tpl = HABIT_TEMPLATES.find((t) => t.id === id);
+  if (!tpl) return null;
+  return {
+    ...tpl,
+    name: tpl.name[locale],
+    description: tpl.description[locale],
+  };
+}
+
+/** Task template copy for the asked locale, or null for unknown ids. */
+export function taskTemplateFor(id: string, locale: TemplateLocale): TaskTemplate | null {
+  const tpl = TASK_TEMPLATES.find((t) => t.id === id);
+  if (!tpl) return null;
+  return {
+    ...tpl,
+    title: tpl.title[locale],
+    notes: tpl.notes ? tpl.notes[locale] : undefined,
+  };
 }

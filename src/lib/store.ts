@@ -19,6 +19,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   STORAGE_KEYS,
   type CollectionKey,
+  type LocalDay,
   type FocusSession,
   type Habit,
   type HabitLog,
@@ -421,6 +422,27 @@ export const tasks = {
     setCollection("tasks", (l) =>
       l.map((x) => (rank.has(x.id) ? { ...x, kanbanOrder: rank.get(x.id)!, updatedAt: t } : x)),
     );
+  },
+};
+
+/** One-week recovery: shift overdue open tasks to today so the backlog stops
+ * weighing on the user. Returns changed ids + previous dueDates for an undo
+ * toast. Gentle: it never deletes, never touches habits, and never re-dates
+ * anything due today or in the future. */
+export const recovery = {
+  resetWeek(): { ids: string[]; previous: Record<string, LocalDay | undefined> } {
+    const today = todayLocal();
+    const previous: Record<string, LocalDay | undefined> = {};
+    const ids: string[] = [];
+    setCollection("tasks", (l) =>
+      l.map((t) => {
+        if (t.deletedAt || t.status === "done" || !t.dueDate || t.dueDate >= today) return t;
+        previous[t.id] = t.dueDate;
+        ids.push(t.id);
+        return { ...t, dueDate: today, updatedAt: nowIso() };
+      }),
+    );
+    return { ids, previous };
   },
 };
 

@@ -24,8 +24,9 @@ import { Segmented } from "@/components/app/Segmented";
 import { PageHeader } from "@/components/app/PageHeader";
 import { OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
 import { toast } from "sonner";
-import { formatDate, type Locale } from "@/lib/i18n";
+import { formatDate, formatNumber, type Locale } from "@/lib/i18n";
 import { filterNotes, mdToHtml, sortNotes } from "@/lib/notes";
+import { extractChecklistTasks } from "@/lib/noteTasks";
 import { NOTE_TEMPLATES, templateFor, type TemplateId } from "@/lib/templates";
 import { notes as noteApi, tasks as taskApi, useStore } from "@/lib/store";
 import type { Note, Task } from "@/lib/types";
@@ -286,6 +287,23 @@ function NoteEditor({
     toast(t.notes.converted);
   };
 
+  const convertChecklist = () => {
+    if (items.length === 0) return;
+    const created: string[] = [];
+    for (const it of items) {
+      const task = taskApi.add({ title: it.title, notes: body, linkedTaskId: note.id });
+      created.push(task.id);
+    }
+    toast(t.checklist.done.replace("{n}", formatNumber(locale, items.length)), {
+      action: {
+        label: t.tasks.toasts.undo,
+        onClick: () => {
+          for (const id of created) taskApi.remove(id);
+        },
+      },
+    });
+  };
+
   const onPreviewClick = (e: MouseEvent<HTMLDivElement>) => {
     const el = (e.target as HTMLElement).closest(".note-link");
     if (!el) return;
@@ -303,6 +321,7 @@ function NoteEditor({
     navigate({ to: "/tasks" });
   };
   const valid = title.trim() !== "";
+  const items = extractChecklistTasks(note);
 
   const save = () => {
     if (!valid) return;
@@ -389,6 +408,12 @@ function NoteEditor({
           <ListTodo className="size-4" aria-hidden />
           {t.notes.convert}
         </button>
+        {items.length > 0 && (
+          <button type="button" onClick={convertChecklist} className={OUTLINE_BTN}>
+            <ListTodo className="size-4" aria-hidden />
+            {t.checklist.button.replace("{n}", formatNumber(locale, items.length))}
+          </button>
+        )}
         <button
           type="button"
           onClick={onDelete}

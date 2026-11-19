@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
+  AlertTriangle,
   CalendarClock,
   CheckCircle2,
   Circle,
@@ -31,7 +32,13 @@ import { workMinutesToday } from "@/lib/focusTime";
 import { latestUnlocks } from "@/lib/achievements";
 import { totalsFromLedger, xpAwardedOnDay } from "@/lib/rewards";
 import { DAILY_XP_CAP } from "@/lib/rewardsConfig";
-import { habits as habitsApi, tasks as tasksApi, todayLocal, useStore } from "@/lib/store";
+import {
+  habits as habitsApi,
+  tasks as tasksApi,
+  todayLocal,
+  useStore,
+  recovery,
+} from "@/lib/store";
 import { currentTimeZone, toLocalDay } from "@/lib/dates";
 import { digestFor } from "@/lib/digest";
 import type { Task } from "@/lib/types";
@@ -95,6 +102,9 @@ function DashboardPage() {
       x.status === "done" &&
       x.completedAt &&
       toLocalDay(new Date(x.completedAt), dayStartHour, currentTimeZone()) === today,
+  );
+  const overdue = liveTasks.filter(
+    (x) => !x.deletedAt && x.status !== "done" && x.dueDate !== undefined && x.dueDate < today,
   );
   const firstRun = liveTasks.length === 0 && liveHabits.length === 0 && liveSessions.length === 0;
   const anyCard = Object.values(cards).some((v) => v);
@@ -166,6 +176,35 @@ function DashboardPage() {
         title={t.pages.dashboard.title}
         lede={firstRun ? t.pages.dashboard.body : undefined}
       />
+
+      {overdue.length > 0 && (
+        <div className="mt-4 panel flex items-center gap-3 p-3">
+          <AlertTriangle className="size-5 shrink-0 text-warning" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="text-sm font-medium">{t.recovery.title}</span>
+            <p className="mt-1 text-xs text-muted-foreground">{t.recovery.hint}</p>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const { ids, previous } = recovery.resetWeek();
+              showToast(t.recovery.done, {
+                action: {
+                  label: t.tasks.toasts.undo,
+                  onClick: () => {
+                    for (const [id, dueDate] of Object.entries(previous)) {
+                      tasksApi.update(id, { dueDate: dueDate ?? undefined });
+                    }
+                  },
+                },
+              });
+            }}
+            className={PRIMARY_BTN + " px-3 py-1.5"}
+          >
+            {t.recovery.button}
+          </button>
+        </div>
+      )}
 
       {completedToday.length > 0 && (
         <div className="mt-4 panel flex items-center gap-3 p-3">
