@@ -1,17 +1,30 @@
 import { useEffect, useRef } from "react";
 import { type Task, type Habit, type HabitLog, type FocusSession, type LocalDay } from "@/lib/types";
-import { activityHeatmap, monthBlocks, HEAT_DAYS } from "@/lib/activityHeatmap";
+import {
+  activityHeatmap,
+  monthBlocks,
+  HEAT_DAYS,
+} from "@/lib/activityHeatmap";
+import {
+  HEAT_CELL,
+  HEAT_GAP,
+  HEAT_GRID_HEIGHT,
+  HEAT_RADIUS,
+  HEAT_WEEKDAY_COL,
+  HEAT_MONTH_GAP,
+} from "@/lib/layoutConstants";
 import { addDays, endOfMonth, startOfMonth } from "@/lib/dates";
 import { formatDate, formatNumber } from "@/lib/i18n";
 import { plural } from "@/lib/i18n";
 import { usePrefs } from "./preferences";
 import type { Locale } from "@/lib/i18n";
 
-const CELL = 12; // px
-const GAP = 3; // px
-const MONTH_GAP = 12; // px
-const WEEKDAY_COL = 32; // px
-const GRID_HEIGHT = HEAT_DAYS * CELL + (HEAT_DAYS - 1) * GAP; // 102px
+const CELL = HEAT_CELL; // px
+const GAP = HEAT_GAP; // px
+const MONTH_GAP = HEAT_MONTH_GAP; // px
+const WEEKDAY_COL = HEAT_WEEKDAY_COL; // px
+const GRID_HEIGHT = HEAT_GRID_HEIGHT; // px (102px)
+const RADIUS = HEAT_RADIUS; // px
 
 /** Level->color mapping copied verbatim from the insights heatmap. */
 const levelCls = (level: number): string => {
@@ -130,7 +143,7 @@ export function ActivityHeatmap({
   };
 
   return (
-    <section className="panel mt-4 p-4" data-hm-root>
+    <section className="panel mt-4 p-4" data-hm-root dir="ltr">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-muted-foreground">
           <span className="text-primary" aria-hidden>
@@ -169,12 +182,15 @@ export function ActivityHeatmap({
                   <span className="text-[9px]">{block.year}</span>
                 </div>
                 <div
-                  className="grid grid-cols-7 gap-3 w-fit min-w-[calc(32px+1px)]"
+                  className={`grid w-fit min-w-[calc(${WEEKDAY_COL}px+1px)]`}
                   data-hm-block
                   data-cols={block.cols}
                   style={{
-                    width: blockWidth + "px",
-                    height: GRID_HEIGHT + "px",
+                    gridTemplateColumns: `repeat(${block.cols}, ${CELL}px)`,
+                    gridTemplateRows: `repeat(7, ${CELL}px)`,
+                    gap: `${GAP}px`,
+                    width: `${blockWidth}px`,
+                    height: `${GRID_HEIGHT}px`,
                   }}
                 >
                   {/* Weekday label column on the left, rows 2, 4, 6 */}
@@ -184,7 +200,7 @@ export function ActivityHeatmap({
                       <span
                         key={"wd-" + j}
                         className={
-                          "size-12 shrink-0 text-[9px] leading-none text-muted-foreground flex items-center justify-center " +
+                          `w-[${CELL}px] h-[${CELL}px] shrink-0 text-[9px] leading-none text-muted-foreground flex items-center justify-center ` +
                           (showLabel ? "" : "opacity-0")
                         }
                         style={{
@@ -230,10 +246,10 @@ export function ActivityHeatmap({
                         onKeyDown={(e) => handleCellKeyDown(e, c.day)}
                         className={
                           clsx(
-                            "size-12 shrink-0 rounded-[2px] border-0 outline-none",
+                            `w-[${CELL}px] h-[${CELL}px] shrink-0 rounded-[${RADIUS}px] border-0 outline-none`,
                             levelCls(c.level),
                             isToday
-                              ? "shadow-[0_0_0_1px_var(--color-accent)]"
+                              ? `shadow-[0_0_0_1px_var(--color-accent)]`
                               : "",
                             disabled ? "opacity-30 cursor-not-allowed" : "hover:opacity-80",
                           )
@@ -250,14 +266,14 @@ export function ActivityHeatmap({
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-[2px] shadow-[0_0_0_1px_var(--color-accent)]" aria-hidden="true" />
+          <span className={`w-[${CELL}px] h-[${CELL}px] rounded-[${RADIUS}px] shadow-[0_0_0_1px_var(--color-accent)]`} aria-hidden="true" />
           {t.heatmap.today}
         </span>
         <div className="flex items-center gap-1.5 text-right" aria-label={t.heatmap.less + " — " + t.heatmap.more}>
           <span>{t.heatmap.less}</span>
           {[0, 1, 2, 3, 4].map((lvl) => (
             <span key={lvl} className="inline-flex items-center gap-1">
-              <span className={"w-3 h-3 rounded-[2px] " + levelCls(lvl)} />
+              <span className={`w-[${CELL}px] h-[${CELL}px] rounded-[${RADIUS}px] ${levelCls(lvl)}`} />
               {lvl === 0 ? t.heatmap.zero : formatNumber(locale, levelMin(lvl))}
               {lvl === 4 ? "+" : lvl > 0 ? "-" + formatNumber(locale, levelMax(lvl)) : ""}
             </span>
