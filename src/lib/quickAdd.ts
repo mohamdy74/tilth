@@ -9,9 +9,9 @@ export interface QuickAddResult {
   dueDate: LocalDay | undefined;
 }
 
-const HIGH = ["high", "عالي", "عالية", "مهم"];
-const MEDIUM = ["medium", "med", "متوسط"];
-const LOW = ["low", "منخفض", "بسيط"];
+const HIGH = ["high", "urgent", "عالي", "عالية", "مهم", "عاجل"];
+const MEDIUM = ["medium", "med", "average", "متوسط", "عادي"];
+const LOW = ["low", "easy", "منخفض", "بسيط", "سهل"];
 const EN_TODAY = ["today", "tod"];
 const EN_TOMORROW = ["tomorrow", "tmr", "tmrw"];
 const AR_TODAY = ["النهاردة", "النهارده", "اليوم"];

@@ -46,8 +46,17 @@ describe("parseQuickAdd", () => {
     expect(parseQuickAdd("x !متوسط", T).priority).toBe("medium");
   });
 
+  it("maps extended priority aliases (EN + AR)", () => {
+    expect(parseQuickAdd("x !urgent", T).priority).toBe("high");
+    expect(parseQuickAdd("x !عاجل", T).priority).toBe("high");
+    expect(parseQuickAdd("x !average", T).priority).toBe("medium");
+    expect(parseQuickAdd("x !عادي", T).priority).toBe("medium");
+    expect(parseQuickAdd("x !easy", T).priority).toBe("low");
+    expect(parseQuickAdd("x !سهل", T).priority).toBe("low");
+  });
+
   it("keeps unknown !flags in the title", () => {
-    expect(parseQuickAdd("Call !urgent Sam", T).title).toBe("Call !urgent Sam");
+    expect(parseQuickAdd("Call !mystery Sam", T).title).toBe("Call !mystery Sam");
   });
 
   it("lowercases tags", () => {
