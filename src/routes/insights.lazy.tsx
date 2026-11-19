@@ -42,6 +42,8 @@ import {
   type Observation,
 } from "@/lib/insights";
 import { activityHeatmap, type ActivityCell, HEAT_DAYS } from "@/lib/activityHeatmap";
+import { energy, suggestTaskStart } from "@/lib/energy";
+import { distractionsByDay } from "@/lib/distractionReview";
 import type { LocalDay } from "@/lib/types";
 import { tasks as taskApi, todayLocal, useStore } from "@/lib/store";
 import { toast } from "sonner";
@@ -801,7 +803,10 @@ function HeatmapPanel({
           <span className="size-3 rounded-[2px] ring-1 ring-accent" aria-hidden="true" />
           {t.heatmap.today}
         </span>
-        <div className="flex items-center gap-1.5" aria-label={t.heatmap.less + " — " + t.heatmap.more}>
+        <div
+          className="flex items-center gap-1.5"
+          aria-label={t.heatmap.less + " — " + t.heatmap.more}
+        >
           <span>{t.heatmap.less}</span>
           {Array.from({ length: 5 }, (_, level) => (
             <span
