@@ -26,7 +26,7 @@ import { usePrefs } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Segmented } from "@/components/app/Segmented";
 import { addDays, currentTimeZone, defaultWeekStartsOn, normalizeWeekStartsOn } from "@/lib/dates";
-import { formatDate, formatNumber } from "@/lib/i18n";
+import { formatDate, formatNumber, plural } from "@/lib/i18n";
 import {
   focusMinutesByDay,
   habitConsistencyByDay,
@@ -708,6 +708,22 @@ function HeatmapPanel({
     }
   };
   const weekCount = Math.ceil(heatmap.length / HEAT_DAYS);
+  const weeks = Array.from({ length: weekCount }, (_, wi) =>
+    heatmap.slice(wi * HEAT_DAYS, (wi + 1) * HEAT_DAYS),
+  );
+  const totalActivities = heatmap.reduce((sum, cell) => sum + cell.count, 0);
+  const activeDays = heatmap.reduce((sum, cell) => sum + (cell.count > 0 ? 1 : 0), 0);
+  const summary = fill(t.heatmap.summary, {
+    total: formatNumber(locale, totalActivities),
+    days: formatNumber(locale, activeDays),
+  });
+  const monthForWeek = (week: ActivityCell[], wi: number) => {
+    const firstOfMonth = week.find((cell) => Number(cell.day.slice(-2)) === 1);
+    const cell = firstOfMonth ?? (wi === 0 ? week[0] : undefined);
+    return cell
+      ? formatDate(locale, new Date(cell.day + "T12:00:00Z"), { month: "short", timeZone: "UTC" })
+      : "";
+  };
 
   return (
     <div className="panel mt-4 p-4">
@@ -719,48 +735,84 @@ function HeatmapPanel({
           <h2 className="text-sm font-semibold">{t.heatmap.title}</h2>
         </div>
       </div>
-      <p className="mb-3 text-xs text-muted-foreground">{t.heatmap.subtitle}</p>
-      <div className="mt-2 flex items-end gap-1">
-        {weekdayOrder.map((j) => (
-          <span key={j} className="w-[16px] shrink-0 text-[10px] text-muted-foreground text-center">
-            {weekdayLabel(j)}
-          </span>
-        ))}
-      </div>
-      <div className="mt-1 flex gap-0.5">
-        {Array.from({ length: weekCount }).map((_, wi) => (
-          <div key={wi} className="flex flex-col gap-0.5">
-            {weekdayOrder.map((j) => {
-              const cell = heatmap[wi * HEAT_DAYS + j];
-              if (!cell) return null;
-              const isToday = cell.day === today;
-              return (
-                <span
-                  key={cell.day}
-                  title={
-                    formatDate(locale, new Date(cell.day + "T12:00:00Z"), {
-                      dateStyle: "medium",
-                    }) +
-                    " — " +
-                    cell.count +
-                    " " +
-                    t.heatmap.activities
-                  }
-                  className={`size-4 rounded shrink-0 ${levelCls(cell.level)} ${
-                    isToday ? "ring-1 ring-accent" : ""
-                  }`}
-                />
-              );
-            })}
-          </div>
-        ))}
-      </div>
-      <p className="mt-2 text-xs text-muted-foreground tabular-nums">
-        <span className="w-[16px] h-[16px] rounded bg-muted/20 inline-block mr-1.5" />
-        {t.heatmap.less}
-        <span className="ml-3 w-[16px] h-[16px] rounded bg-accent/80 inline-block mr-1.5" />
-        {t.heatmap.more}
+      <p className="mt-1 text-xs text-muted-foreground">{t.heatmap.subtitle}</p>
+      <p className="mt-2 text-sm font-medium tabular-nums" aria-live="polite">
+        {summary}
       </p>
+      <div
+        className="mt-4 grid grid-cols-[16px_minmax(0,1fr)] gap-x-2"
+        dir={locale === "ar" ? "rtl" : "ltr"}
+        role="group"
+        aria-label={t.heatmap.title + " — " + summary}
+      >
+        <span aria-hidden="true" />
+        <div className="grid grid-cols-[repeat(52,minmax(0,1fr))] gap-x-px overflow-hidden text-[10px] leading-3 text-muted-foreground">
+          {weeks.map((week, wi) => (
+            <span key={wi} className="overflow-visible whitespace-nowrap">
+              {monthForWeek(week, wi)}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-rows-7 gap-y-px pt-4 text-[9px] leading-none text-muted-foreground">
+          {weekdayOrder.map((j) => {
+            const weekday = (safeWeekStartsOn + j) % HEAT_DAYS;
+            const showLabel = weekday === 1 || weekday === 3 || weekday === 5;
+            return (
+              <span key={j} className="flex items-center justify-center">
+                {showLabel ? weekdayLabel(j) : ""}
+              </span>
+            );
+          })}
+        </div>
+        <div className="grid grid-cols-[repeat(52,minmax(0,1fr))] gap-x-px">
+          {weeks.map((week, wi) => (
+            <div key={wi} className="grid min-w-0 grid-rows-7 gap-y-px">
+              {weekdayOrder.map((j) => {
+                const cell = week[j];
+                if (!cell) return <span key={j} aria-hidden="true" />;
+                const isToday = cell.day === today;
+                const dateLabel = formatDate(locale, new Date(cell.day + "T12:00:00Z"), {
+                  dateStyle: "medium",
+                  timeZone: "UTC",
+                });
+                const countLabel = plural(locale, t.heatmap.activityCount, cell.count);
+                return (
+                  <span
+                    key={cell.day}
+                    role="img"
+                    aria-label={
+                      dateLabel + " — " + countLabel + (isToday ? " — " + t.heatmap.today : "")
+                    }
+                    title={
+                      dateLabel + " — " + countLabel + (isToday ? " — " + t.heatmap.today : "")
+                    }
+                    className={`aspect-square w-full min-w-0 rounded-[2px] ${levelCls(cell.level)} ${
+                      isToday ? "ring-1 ring-accent" : ""
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-3 rounded-[2px] ring-1 ring-accent" aria-hidden="true" />
+          {t.heatmap.today}
+        </span>
+        <div className="flex items-center gap-1.5" aria-label={t.heatmap.less + " — " + t.heatmap.more}>
+          <span>{t.heatmap.less}</span>
+          {Array.from({ length: 5 }, (_, level) => (
+            <span
+              key={level}
+              aria-hidden="true"
+              className={`size-3 rounded-[2px] ${levelCls(level)}`}
+            />
+          ))}
+          <span>{t.heatmap.more}</span>
+        </div>
+      </div>
     </div>
   );
 }
