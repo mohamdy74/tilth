@@ -42,8 +42,6 @@ import {
   type Observation,
 } from "@/lib/insights";
 import { activityHeatmap, type ActivityCell, HEAT_DAYS } from "@/lib/activityHeatmap";
-import { energy, suggestTaskStart } from "@/lib/energy";
-import { distractionsByDay } from "@/lib/distractionReview";
 import type { LocalDay } from "@/lib/types";
 import { tasks as taskApi, todayLocal, useStore } from "@/lib/store";
 import { toast } from "sonner";
