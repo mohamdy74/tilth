@@ -94,6 +94,12 @@ describe("activityHeatmap", () => {
     expect(cell?.level).toBe(1);
   });
 
+  it("ignores malformed completion timestamps", () => {
+    const tasks = [task({ status: "done", completedAt: "not-a-date" })];
+    expect(() => activityHeatmap(tasks, [], [], [], opts)).not.toThrow();
+    expect(activityHeatmap(tasks, [], [], [], opts).every((cell) => cell.count === 0)).toBe(true);
+  });
+
   it("accumulates multiple activities on the same day", () => {
     const tasks = [
       task({ status: "done", completedAt: today + "T08:00:00Z" }),

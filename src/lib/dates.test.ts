@@ -5,6 +5,7 @@ import {
   defaultWeekStartsOn,
   endOfMonth,
   endOfWeek,
+  isValidTimestamp,
   startOfMonth,
   startOfWeek,
   toLocalDay,
@@ -36,6 +37,14 @@ describe("toLocalDay", () => {
     expect(toLocalDay(new Date("2026-11-01T05:30:00Z"), 0, "America/New_York")).toBe("2026-11-01");
     expect(toLocalDay(new Date("2026-11-01T06:30:00Z"), 0, "America/New_York")).toBe("2026-11-01");
     expect(toLocalDay(new Date("2026-11-01T06:30:00Z"), 4, "America/New_York")).toBe("2026-10-31");
+  });
+});
+
+describe("isValidTimestamp", () => {
+  it("accepts valid ISO timestamps and rejects malformed stored values", () => {
+    expect(isValidTimestamp("2026-11-19T17:41:30.000Z")).toBe(true);
+    expect(isValidTimestamp("not-a-date")).toBe(false);
+    expect(isValidTimestamp("2026-02-30T10:00:00.000Z")).toBe(false);
   });
 });
 

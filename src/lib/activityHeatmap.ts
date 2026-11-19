@@ -9,7 +9,7 @@
  * in. Returns oldest-first, one entry per calendar day.
  */
 
-import { addDays, startOfWeek, toLocalDay } from "./dates";
+import { addDays, isValidTimestamp, startOfWeek, toLocalDay } from "./dates";
 import type { FocusSession, Habit, HabitLog, LocalDay, Task } from "./types";
 
 /** One cell of the heatmap grid. */
@@ -46,7 +46,13 @@ function activityCounts(
   const add = (day: LocalDay) => by.set(day, (by.get(day) ?? 0) + 1);
 
   for (const t of tasks) {
-    if (t.deletedAt || t.status !== "done" || t.completedAt === undefined) continue;
+    if (
+      t.deletedAt ||
+      t.status !== "done" ||
+      t.completedAt === undefined ||
+      !isValidTimestamp(t.completedAt)
+    )
+      continue;
     add(toLocalDay(new Date(t.completedAt), opts.dayStartHour, opts.timeZone));
   }
   for (const h of habits) {

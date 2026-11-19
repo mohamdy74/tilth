@@ -42,6 +42,32 @@ export function currentTimeZone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
+/** Guards imported or legacy timestamps before date formatting or timezone conversion. */
+export function isValidTimestamp(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.exec(
+    value,
+  );
+  if (!match || !Number.isFinite(Date.parse(value))) return false;
+
+  const [, yearPart, monthPart, dayPart, hourPart, minutePart, secondPart] = match;
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  const day = Number(dayPart);
+  const hour = Number(hourPart);
+  const minute = Number(minutePart);
+  const second = Number(secondPart);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return (
+    month >= 1 &&
+    month <= 12 &&
+    day >= 1 &&
+    day <= daysInMonth &&
+    hour <= 23 &&
+    minute <= 59 &&
+    second <= 59
+  );
+}
+
 // LocalDay arithmetic is done on UTC dates so DST never shifts a calendar day.
 function parse(day: LocalDay) {
   const [y = 1970, m = 1, d = 1] = day.split("-").map(Number);

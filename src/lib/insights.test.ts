@@ -125,6 +125,27 @@ describe("insights series", () => {
     expect(pts[6]).toEqual({ day: TODAY, value: 1 });
   });
 
+  it("ignores malformed completion timestamps instead of crashing date conversion", () => {
+    const tasks = [task({ status: "done", completedAt: "not-a-date" })];
+    expect(() =>
+      taskCompletionsByDay(tasks, {
+        today: TODAY,
+        days: 7,
+        dayStartHour: 0,
+        timeZone: TZ,
+      }),
+    ).not.toThrow();
+    expect(
+      taskCompletionsByDay(tasks, {
+        today: TODAY,
+        days: 7,
+        dayStartHour: 0,
+        timeZone: TZ,
+      }).every((point) => point.value === 0),
+    ).toBe(true);
+    expect(() => insightsReport({ ...empty, tasks })).not.toThrow();
+  });
+
   it("respects dayStartHour: a 03:30 wall-clock completion belongs to the previous day", () => {
     const tasks = [task({ status: "done", completedAt: iso("2026-11-04", 1, 30) })];
     const pts = taskCompletionsByDay(tasks, {

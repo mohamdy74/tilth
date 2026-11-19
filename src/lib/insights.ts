@@ -3,6 +3,7 @@ import {
   addMonths,
   endOfMonth,
   endOfWeek,
+  isValidTimestamp,
   startOfMonth,
   startOfWeek,
   toLocalDay,
@@ -77,7 +78,13 @@ export function taskCompletionsByDay(
 ): DayPoint[] {
   const by = new Map<LocalDay, number>();
   for (const t of tasks) {
-    if (t.deletedAt || t.status !== "done" || t.completedAt === undefined) continue;
+    if (
+      t.deletedAt ||
+      t.status !== "done" ||
+      t.completedAt === undefined ||
+      !isValidTimestamp(t.completedAt)
+    )
+      continue;
     const day = toLocalDay(new Date(t.completedAt), opts.dayStartHour, opts.timeZone);
     by.set(day, (by.get(day) ?? 0) + 1);
   }
@@ -162,7 +169,11 @@ export function insightsReport(input: {
   const window = windowDays(input.today, ACTIVE_WINDOW_DAYS);
   const inWindow = new Set<LocalDay>(window);
   const doneTasks = input.tasks.filter(
-    (t) => !t.deletedAt && t.status === "done" && t.completedAt !== undefined,
+    (t) =>
+      !t.deletedAt &&
+      t.status === "done" &&
+      t.completedAt !== undefined &&
+      isValidTimestamp(t.completedAt),
   );
   const workSessions = input.focusSessions.filter(
     (s) => !s.deletedAt && s.completed && s.mode !== "break" && (actualMinutes(s) ?? 0) > 0,
@@ -321,6 +332,7 @@ function weekMetrics(input: {
       !t.deletedAt &&
       t.status === "done" &&
       t.completedAt !== undefined &&
+      isValidTimestamp(t.completedAt) &&
       inRange(toLocalDay(new Date(t.completedAt), input.dayStartHour, input.timeZone)),
   ).length;
   const focusMinutes = input.focusSessions
@@ -489,7 +501,13 @@ export function timeAllocation(
   }
   const tasksByDay = new Map<LocalDay, number>();
   for (const t of tasks) {
-    if (t.deletedAt || t.status !== "done" || t.completedAt === undefined) continue;
+    if (
+      t.deletedAt ||
+      t.status !== "done" ||
+      t.completedAt === undefined ||
+      !isValidTimestamp(t.completedAt)
+    )
+      continue;
     tasksByDay.set(
       t.completedAt.slice(0, 10),
       (tasksByDay.get(t.completedAt.slice(0, 10)) ?? 0) + 1,
