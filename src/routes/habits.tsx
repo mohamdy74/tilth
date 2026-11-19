@@ -515,6 +515,17 @@ function TodayRow({
             {plural(locale, t.daysStreak, streak)}
           </span>
         )}
+        {habit.pausedUntil !== undefined && habit.pausedUntil >= today && (
+          <span className="chip border-warning/50 text-warning">
+            <Snowflake className="size-3" aria-hidden />
+            {t.habits.frozenChip.replace(
+              "{date}",
+              formatDate(locale, new Date(habit.pausedUntil + "T12:00:00Z"), {
+                dateStyle: "medium",
+              }),
+            )}
+          </span>
+        )}
       </span>
       <button
         type="button"

@@ -202,6 +202,7 @@ const en = {
 
   dash: {
     viewAll: "View all",
+    doneToday: "Done today",
     startFocus: "Start a session",
     progressEmpty: "Nothing on your plate today — enjoy the calm.",
     deadlinesEmpty: "No deadlines in the next 7 days.",
@@ -884,6 +885,7 @@ const ar: Dict = {
 
   dash: {
     viewAll: "عرض الكل",
+    doneToday: "منجزات اليوم",
     startFocus: "ابدأ جلسة",
     progressEmpty: "لا شيء في قائمتك اليوم — استمتع بالهدوء.",
     deadlinesEmpty: "لا مواعيد خلال الأيام السبعة القادمة.",

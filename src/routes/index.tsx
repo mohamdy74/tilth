@@ -32,7 +32,7 @@ import { latestUnlocks } from "@/lib/achievements";
 import { totalsFromLedger, xpAwardedOnDay } from "@/lib/rewards";
 import { DAILY_XP_CAP } from "@/lib/rewardsConfig";
 import { habits as habitsApi, tasks as tasksApi, todayLocal, useStore } from "@/lib/store";
-import { currentTimeZone } from "@/lib/dates";
+import { currentTimeZone, toLocalDay } from "@/lib/dates";
 import { digestFor } from "@/lib/digest";
 import type { Task } from "@/lib/types";
 import shareImage from "@/assets/tilth-share.jpg.asset.json";
@@ -90,6 +90,12 @@ function DashboardPage() {
   const deadlines = upcomingDeadlines(liveTasks, today);
   const dueHabits = habitsDueToday(liveHabits, liveLogs, today);
   const focusMinutes = workMinutesToday(liveSessions, today);
+  const completedToday = liveTasks.filter(
+    (x) =>
+      x.status === "done" &&
+      x.completedAt &&
+      toLocalDay(new Date(x.completedAt), dayStartHour, currentTimeZone()) === today,
+  );
   const firstRun = liveTasks.length === 0 && liveHabits.length === 0 && liveSessions.length === 0;
   const anyCard = Object.values(cards).some((v) => v);
 
@@ -160,6 +166,30 @@ function DashboardPage() {
         title={t.pages.dashboard.title}
         lede={firstRun ? t.pages.dashboard.body : undefined}
       />
+
+      {completedToday.length > 0 && (
+        <div className="mt-4 panel flex items-center gap-3 p-3">
+          <Sparkles className="size-5 shrink-0 text-primary" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="text-sm font-medium">{t.dash.doneToday}</span>
+            <span className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+              {completedToday.slice(0, 5).map((x) => (
+                <span key={x.id} className="truncate text-muted-foreground line-through">
+                  {x.title}
+                </span>
+              ))}
+              {completedToday.length > 5 && (
+                <span className="text-muted-foreground">
+                  {t.dash.andMore.replace("{n}", formatNumber(locale, completedToday.length - 5))}
+                </span>
+              )}
+            </span>
+          </span>
+          <Link to="/tasks" className={OUTLINE_BTN + " px-3 py-1.5"}>
+            {t.dash.viewAll}
+          </Link>
+        </div>
+      )}
 
       {firstRun ? (
         <WelcomePanel />
