@@ -32,8 +32,10 @@ import {
   insightsReport,
   monthOverMonth,
   taskCompletionsByDay,
+  timeAllocation,
   weekdayFocus,
   weeklyReview,
+  type DayAllocation,
   type DayPoint,
   type InsightsReport,
   type Observation,
@@ -91,6 +93,7 @@ function InsightsPage() {
   const taskSeries = taskCompletionsByDay(tasks, { today, days, dayStartHour, timeZone: tz });
   const habitSeries = habitConsistencyByDay(habits, habitLogs, { today, days });
   const focusSeries = focusMinutesByDay(focusSessions, { today, days });
+  const allocationSeries = timeAllocation(tasks, focusSessions, { today, days });
 
   const totalOf = (s: DayPoint[]) => s.reduce((sum, p) => sum + (p.value ?? 0), 0);
   const taskTotal = totalOf(taskSeries);
@@ -316,6 +319,8 @@ function InsightsPage() {
       )}
 
       <AggregatePanels />
+
+      <TimeAllocationPanel allocation={allocationSeries} />
 
       <ObservationsPanel report={report} />
     </section>
@@ -646,6 +651,53 @@ function AggregatePanels() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ---------------- time allocation panel ---------------- */
+
+function TimeAllocationPanel({ allocation }: { allocation: DayAllocation[] }) {
+  const { t, locale } = usePrefs();
+  const totalFocus = allocation.reduce((sum, d) => sum + d.focusMinutes, 0);
+  const totalTasks = allocation.reduce((sum, d) => sum + d.tasksDone, 0);
+  const hasData = totalFocus > 0 || totalTasks > 0;
+
+  return (
+    <div className="panel mt-4 p-4">
+      <h2 className="panel-title p-0 text-sm">{t.review.title}</h2>
+      <p className="mt-1 text-xs text-muted-foreground">{t.review.timeAllocationHint}</p>
+      {!hasData ? (
+        <p className="mt-3 text-sm text-muted-foreground">{t.review.timeAllocationEmpty}</p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {allocation.map((d) => (
+            <div key={d.day} className="flex items-center gap-2 text-sm">
+              <span className="w-20 shrink-0 truncate text-xs text-muted-foreground">
+                {formatDate(locale, new Date(d.day + "T12:00:00Z"), { weekday: "short" })}
+              </span>
+              <span className="flex-1 h-2 meter">
+                <span
+                  className="meter-fill block"
+                  style={{ width: Math.min(100, d.focusMinutes) + "%" }}
+                />
+              </span>
+              <span className="w-24 shrink-0 text-end text-xs tabular-nums">
+                {d.focusMinutes} min ·{d.tasksDone} done
+              </span>
+            </div>
+          ))}
+          <div className="mt-2 flex justify-between text-xs text-muted-foreground tabular-nums">
+            <span>
+              {t.review.focusMinutes}: {formatNumber(locale, totalFocus)} min
+            </span>
+            <span>
+              {t.review.tasks}: {formatNumber(locale, totalTasks)} done
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">{t.review.timeAllocationNote}</p>
+        </div>
+      )}
     </div>
   );
 }

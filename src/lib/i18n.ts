@@ -733,6 +733,10 @@ const en = {
     momDelta: "{n}% vs last month",
     momFloor: "Available once both months carry 14 active days.",
     sparkTitle: "XP, last 14 days",
+    timeAllocationHint: "Planned focus minutes vs completed tasks per day.",
+    timeAllocationEmpty: "No focus or completion data yet.",
+    timeAllocationNote:
+      "Focus minutes are planned (not wall-clock elapsed); tasks are counted by completion day.",
   },
   badge: { bronze: "Bronze", silver: "Silver", gold: "Gold" },
   notifActions: { done: "Mark done", snooze: "Snooze 1h" },
@@ -1414,6 +1418,9 @@ const ar: Dict = {
     momDelta: "{n}% مقارنة بالشهر الماضي",
     momFloor: "تظهر عندما يحمل الشهرين ١٤ يوم نشاط على الأقل.",
     sparkTitle: "الخبرة، آخر ١٤ يومًا",
+    timeAllocationHint: "الدقائق المخططة للتركيز مقابل المهام المنجزة لكل يوم.",
+    timeAllocationEmpty: "لا توجد بيانات للتركيز أو الإكمال بعد.",
+    timeAllocationNote: "الدقائق مخططة (ليست وقتًا فعليًا); المهام تُحسب حسب يوم الإكمال.",
   },
   recovery: {
     title: "إعادة ضبط الأسبوع",

@@ -463,3 +463,41 @@ export function monthOverMonth(sessions: FocusSession[], today: LocalDay): Month
     lastActiveDays: b.active,
   };
 }
+
+/* ---------------- time allocation ---------------- */
+
+export interface DayAllocation {
+  day: LocalDay;
+  focusMinutes: number;
+  tasksDone: number;
+}
+
+/** Time allocation per day: planned focus minutes vs completed task count.
+ * Focus minutes are planned (not wall-clock elapsed); task count is done
+ * tasks grouped by completion day. Honest about what is and isn't measured.
+ */
+export function timeAllocation(
+  tasks: Task[],
+  sessions: FocusSession[],
+  opts: { today: LocalDay; days: number },
+): DayAllocation[] {
+  const focusByDay = new Map<LocalDay, number>();
+  for (const s of sessions) {
+    if (s.deletedAt || !s.completed || s.mode === "break") continue;
+    const m = s.plannedMinutes;
+    focusByDay.set(s.localDay, (focusByDay.get(s.localDay) ?? 0) + m);
+  }
+  const tasksByDay = new Map<LocalDay, number>();
+  for (const t of tasks) {
+    if (t.deletedAt || t.status !== "done" || t.completedAt === undefined) continue;
+    tasksByDay.set(
+      t.completedAt.slice(0, 10),
+      (tasksByDay.get(t.completedAt.slice(0, 10)) ?? 0) + 1,
+    );
+  }
+  return windowDays(opts.today, opts.days).map((day) => ({
+    day,
+    focusMinutes: focusByDay.get(day) ?? 0,
+    tasksDone: tasksByDay.get(day) ?? 0,
+  }));
+}
