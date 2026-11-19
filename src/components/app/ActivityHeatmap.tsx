@@ -52,7 +52,7 @@ function monthOptions(today: LocalDay, counts: Map<LocalDay, number>): string[] 
     out.push(cursor);
     const parts = cursor.split("-");
     const y = Number(parts[0]!);
-    let m = Number(parts[1]!);
+    const m = Number(parts[1]!);
     let prevY = y;
     let prevM = m - 1;
     if (prevM < 1) {
@@ -69,7 +69,11 @@ function monthYearLabel(locale: Locale, key: string): string {
   const parts = key.split("-");
   const y = Number(parts[0]!);
   const m = Number(parts[1]!);
-  return formatDate(locale, new Date(y, m - 1, 1), { month: "short", year: "numeric", timeZone: "UTC" });
+  return formatDate(locale, new Date(y, m - 1, 1), {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 /** Pure keyboard navigation for the single-month grid. Returns the next
