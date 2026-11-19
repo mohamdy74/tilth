@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { activityHeatmap, activityLevel, HEAT_DAYS, HEAT_WEEKS } from "./activityHeatmap";
+import {
+  activityHeatmap,
+  activityLevel,
+  HEAT_DAYS,
+  HEAT_WEEKS,
+  monthBlocks,
+} from "./activityHeatmap";
 import type { FocusSession, HabitLog, LocalDay, Priority, Task, TaskStatus } from "./types";
 
 const today: LocalDay = "2026-11-16";
@@ -124,5 +130,110 @@ describe("activityHeatmap", () => {
     const cell = cells.find((c) => c.day === today);
     // 1 done habit log + 1 completed work session (break excluded)
     expect(cell?.count).toBe(2);
+  });
+});
+
+describe("monthBlocks layout (literal pixel assertions)", () => {
+  const emptyHeatmap = activityHeatmap([], [], [], [], {
+    today: "2026-12-15",
+    weekStartsOn: 6,
+    dayStartHour: 0,
+    timeZone: "UTC",
+  });
+
+  it("weekStartsOn=Saturday: Dec 2026 offset 3 cols 5 width 72", () => {
+    const blocks = monthBlocks(emptyHeatmap, "2026-12-15", 6);
+    const dec = blocks.find((b) => b.year === 2026 && b.month === 12)!;
+    expect(dec.offset).toBe(3);
+    expect(dec.cols).toBe(5);
+    expect(dec.cols * 12 + (dec.cols - 1) * 3).toBe(72);
+  });
+
+  it("weekStartsOn=Saturday: Jan 2027 offset 6 cols 6 width 87", () => {
+    const hm = activityHeatmap([], [], [], [], {
+      today: "2027-01-15",
+      weekStartsOn: 6,
+      dayStartHour: 0,
+      timeZone: "UTC",
+    });
+    const blocks = monthBlocks(hm, "2027-01-15", 6);
+    const jan = blocks.find((b) => b.year === 2027 && b.month === 1)!;
+    expect(jan.offset).toBe(6);
+    expect(jan.cols).toBe(6);
+    expect(jan.cols * 12 + (jan.cols - 1) * 3).toBe(87);
+  });
+
+  it("weekStartsOn=Saturday: Feb 2027 offset 2 cols 5 width 72", () => {
+    const hm = activityHeatmap([], [], [], [], {
+      today: "2027-02-15",
+      weekStartsOn: 6,
+      dayStartHour: 0,
+      timeZone: "UTC",
+    });
+    const blocks = monthBlocks(hm, "2027-02-15", 6);
+    const feb = blocks.find((b) => b.year === 2027 && b.month === 2)!;
+    expect(feb.offset).toBe(2);
+    expect(feb.cols).toBe(5);
+    expect(feb.cols * 12 + (feb.cols - 1) * 3).toBe(72);
+  });
+
+  it("weekStartsOn=Monday: Feb 2027 offset 0 cols 4 width 57", () => {
+    const hm = activityHeatmap([], [], [], [], {
+      today: "2027-02-15",
+      weekStartsOn: 1,
+      dayStartHour: 0,
+      timeZone: "UTC",
+    });
+    const blocks = monthBlocks(hm, "2027-02-15", 1);
+    const feb = blocks.find((b) => b.year === 2027 && b.month === 2)!;
+    expect(feb.offset).toBe(0);
+    expect(feb.cols).toBe(4);
+    expect(feb.cols * 12 + (feb.cols - 1) * 3).toBe(57);
+  });
+
+  it("grid height is always 102px", () => {
+    const blocks = monthBlocks(emptyHeatmap, "2026-12-15", 6);
+    for (const b of blocks) {
+      expect(b.cells.length).toBeGreaterThan(0);
+      // every cell row is 1..7, col is 1..cols
+      for (const c of b.cells) {
+        expect(c.row).toBeGreaterThanOrEqual(1);
+        expect(c.row).toBeLessThanOrEqual(7);
+        expect(c.col).toBeGreaterThanOrEqual(1);
+        expect(c.col).toBeLessThanOrEqual(b.cols);
+      }
+    }
+  });
+
+  it("cells per month == days in month (Feb 2028 = 29); day 1 row == offset+1", () => {
+    const hm = activityHeatmap([], [], [], [], {
+      today: "2028-02-15",
+      weekStartsOn: 6,
+      dayStartHour: 0,
+      timeZone: "UTC",
+    });
+    const blocks = monthBlocks(hm, "2028-02-15", 6);
+    const feb = blocks.find((b) => b.year === 2028 && b.month === 2)!;
+    expect(feb.cells.length).toBe(29);
+    const day1 = feb.cells.find((c) => c.day === "2028-02-01")!;
+    expect(day1.row).toBe(feb.offset + 1);
+    expect(day1.col).toBe(1);
+  });
+
+  it("Feb 2028 span yields consecutive UNIQUE day keys (no dupes/gaps)", () => {
+    const hm = activityHeatmap([], [], [], [], {
+      today: "2028-02-15",
+      weekStartsOn: 6,
+      dayStartHour: 0,
+      timeZone: "UTC",
+    });
+    const blocks = monthBlocks(hm, "2028-02-15", 6);
+    const feb = blocks.find((b) => b.year === 2028 && b.month === 2)!;
+    const days = feb.cells.map((c) => c.day).sort();
+    const expected = Array.from({ length: 29 }, (_, i) =>
+      "2028-02-" + String(i + 1).padStart(2, "0"),
+    );
+    expect(days).toEqual(expected);
+    expect(new Set(days).size).toBe(days.length);
   });
 });

@@ -116,6 +116,11 @@ export function endOfMonth(day: LocalDay): LocalDay {
   return format(new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 0)));
 }
 
+/** Number of days in the month of `day`. */
+export function daysInMonth(day: LocalDay): number {
+  return Number(endOfMonth(day).slice(8, 10));
+}
+
 export function daysBetween(a: LocalDay, b: LocalDay): number {
   return Math.round((parse(b).getTime() - parse(a).getTime()) / 86_400_000);
 }

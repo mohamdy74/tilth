@@ -6,6 +6,7 @@ import {
   endOfMonth,
   endOfWeek,
   isValidTimestamp,
+  daysInMonth,
   normalizeWeekStartsOn,
   startOfMonth,
   startOfWeek,
@@ -94,5 +95,15 @@ describe("month boundaries", () => {
     expect(endOfMonth("2026-11-05")).toBe("2026-11-30");
     expect(endOfMonth("2028-02-10")).toBe("2028-02-29");
     expect(endOfMonth("2026-02-10")).toBe("2026-02-28");
+  });
+});
+
+describe("daysInMonth", () => {
+  it("returns days in month including leap February", () => {
+    expect(daysInMonth("2026-11-05")).toBe(30);
+    expect(daysInMonth("2026-12-01")).toBe(31);
+    expect(daysInMonth("2028-02-10")).toBe(29);
+    expect(daysInMonth("2026-02-10")).toBe(28);
+    expect(daysInMonth("2026-01-15")).toBe(31);
   });
 });

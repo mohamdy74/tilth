@@ -2,7 +2,6 @@ import { createLazyFileRoute } from "@tanstack/react-router";
 import {
   CalendarCheck,
   Clock,
-  Flame,
   SkipForward,
   Timer,
   TrendingDown,
@@ -25,8 +24,9 @@ import {
 import { usePrefs } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Segmented } from "@/components/app/Segmented";
+import { ActivityHeatmap } from "@/components/app/ActivityHeatmap";
 import { addDays, currentTimeZone, defaultWeekStartsOn, normalizeWeekStartsOn } from "@/lib/dates";
-import { formatDate, formatNumber, plural } from "@/lib/i18n";
+import { formatDate, formatNumber } from "@/lib/i18n";
 import {
   focusMinutesByDay,
   habitConsistencyByDay,
@@ -41,8 +41,8 @@ import {
   type InsightsReport,
   type Observation,
 } from "@/lib/insights";
-import { activityHeatmap, type ActivityCell, HEAT_DAYS } from "@/lib/activityHeatmap";
-import type { LocalDay } from "@/lib/types";
+
+
 import { tasks as taskApi, todayLocal, useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { OUTLINE_BTN } from "@/components/ui/button";
@@ -99,12 +99,6 @@ function InsightsPage() {
   const habitSeries = habitConsistencyByDay(habits, habitLogs, { today, days });
   const focusSeries = focusMinutesByDay(focusSessions, { today, days });
   const allocationSeries = timeAllocation(tasks, focusSessions, { today, days });
-  const heatmapSeries = activityHeatmap(tasks, habits, habitLogs, focusSessions, {
-    today,
-    weekStartsOn,
-    dayStartHour,
-    timeZone: tz,
-  });
 
   const totalOf = (s: DayPoint[]) => s.reduce((sum, p) => sum + (p.value ?? 0), 0);
   const taskTotal = totalOf(taskSeries);
@@ -332,7 +326,16 @@ function InsightsPage() {
       <AggregatePanels />
 
       <TimeAllocationPanel allocation={allocationSeries} />
-      <HeatmapPanel heatmap={heatmapSeries} today={today} weekStartsOn={weekStartsOn} />
+      <ActivityHeatmap
+        tasks={tasks}
+        habits={habits}
+        habitLogs={habitLogs}
+        focusSessions={focusSessions}
+        today={today}
+        weekStartsOn={weekStartsOn}
+        dayStartHour={dayStartHour}
+        timeZone={tz}
+      />
 
       <ObservationsPanel report={report} />
     </section>
@@ -668,157 +671,6 @@ function AggregatePanels() {
   );
 }
 
-/* ---------------- activity heatmap (GitHub-style) ---------------- */
-
-function HeatmapPanel({
-  heatmap,
-  today,
-  weekStartsOn,
-}: {
-  heatmap: ActivityCell[];
-  today: LocalDay;
-  weekStartsOn: number;
-}) {
-  const { t, locale } = usePrefs();
-  const safeWeekStartsOn =
-    Number.isInteger(weekStartsOn) && weekStartsOn >= 0 && weekStartsOn < HEAT_DAYS
-      ? weekStartsOn
-      : 0;
-  // Day order within each week column, starting at the week's first day.
-  // Each column is a vertical stack of 7 cells; index j maps to weekday
-  // (weekStartsOn + j) % 7, matching heatmap cell layout (oldest-first).
-  const weekdayOrder = [...Array(HEAT_DAYS)].map((_, i) => i);
-  const weekdayLabel = (j: number) =>
-    new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", {
-      weekday: "narrow",
-      timeZone: "UTC",
-    }).format(new Date(Date.UTC(2023, 0, 1 + ((safeWeekStartsOn + j) % HEAT_DAYS))));
-  const levelCls = (level: number) => {
-    switch (level) {
-      case 1:
-        return "bg-accent/20";
-      case 2:
-        return "bg-accent/40";
-      case 3:
-        return "bg-accent/60";
-      case 4:
-        return "bg-accent/80";
-      default:
-        return "bg-muted/20";
-    }
-  };
-  const weekCount = Math.ceil(heatmap.length / HEAT_DAYS);
-  const weeks = Array.from({ length: weekCount }, (_, wi) =>
-    heatmap.slice(wi * HEAT_DAYS, (wi + 1) * HEAT_DAYS),
-  );
-  const totalActivities = heatmap.reduce((sum, cell) => sum + cell.count, 0);
-  const activeDays = heatmap.reduce((sum, cell) => sum + (cell.count > 0 ? 1 : 0), 0);
-  const summary = fill(t.heatmap.summary, {
-    total: formatNumber(locale, totalActivities),
-    days: formatNumber(locale, activeDays),
-  });
-  const monthForWeek = (week: ActivityCell[], wi: number) => {
-    const firstOfMonth = week.find((cell) => Number(cell.day.slice(-2)) === 1);
-    const cell = firstOfMonth ?? (wi === 0 ? week[0] : undefined);
-    return cell
-      ? formatDate(locale, new Date(cell.day + "T12:00:00Z"), { month: "short", timeZone: "UTC" })
-      : "";
-  };
-
-  return (
-    <div className="panel mt-4 p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <span className="text-primary">
-            <Flame className="size-4" aria-hidden />
-          </span>
-          <h2 className="text-sm font-semibold">{t.heatmap.title}</h2>
-        </div>
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">{t.heatmap.subtitle}</p>
-      <p className="mt-2 text-sm font-medium tabular-nums" aria-live="polite">
-        {summary}
-      </p>
-      <div
-        className="mt-4 grid grid-cols-[16px_minmax(0,1fr)] gap-x-2"
-        dir={locale === "ar" ? "rtl" : "ltr"}
-        role="group"
-        aria-label={t.heatmap.title + " — " + summary}
-      >
-        <span aria-hidden="true" />
-        <div className="grid grid-cols-[repeat(52,minmax(0,1fr))] gap-x-px overflow-hidden text-[10px] leading-3 text-muted-foreground">
-          {weeks.map((week, wi) => (
-            <span key={wi} className="overflow-visible whitespace-nowrap">
-              {monthForWeek(week, wi)}
-            </span>
-          ))}
-        </div>
-        <div className="grid grid-rows-7 gap-y-px pt-4 text-[9px] leading-none text-muted-foreground">
-          {weekdayOrder.map((j) => {
-            const weekday = (safeWeekStartsOn + j) % HEAT_DAYS;
-            const showLabel = weekday === 1 || weekday === 3 || weekday === 5;
-            return (
-              <span key={j} className="flex items-center justify-center">
-                {showLabel ? weekdayLabel(j) : ""}
-              </span>
-            );
-          })}
-        </div>
-        <div className="grid grid-cols-[repeat(52,minmax(0,1fr))] gap-x-px">
-          {weeks.map((week, wi) => (
-            <div key={wi} className="grid min-w-0 grid-rows-7 gap-y-px">
-              {weekdayOrder.map((j) => {
-                const cell = week[j];
-                if (!cell) return <span key={j} aria-hidden="true" />;
-                const isToday = cell.day === today;
-                const dateLabel = formatDate(locale, new Date(cell.day + "T12:00:00Z"), {
-                  dateStyle: "medium",
-                  timeZone: "UTC",
-                });
-                const countLabel = plural(locale, t.heatmap.activityCount, cell.count);
-                return (
-                  <span
-                    key={cell.day}
-                    role="img"
-                    aria-label={
-                      dateLabel + " — " + countLabel + (isToday ? " — " + t.heatmap.today : "")
-                    }
-                    title={
-                      dateLabel + " — " + countLabel + (isToday ? " — " + t.heatmap.today : "")
-                    }
-                    className={`aspect-square w-full min-w-0 rounded-[2px] ${levelCls(cell.level)} ${
-                      isToday ? "ring-1 ring-accent" : ""
-                    }`}
-                  />
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="size-3 rounded-[2px] ring-1 ring-accent" aria-hidden="true" />
-          {t.heatmap.today}
-        </span>
-        <div
-          className="flex items-center gap-1.5"
-          aria-label={t.heatmap.less + " — " + t.heatmap.more}
-        >
-          <span>{t.heatmap.less}</span>
-          {Array.from({ length: 5 }, (_, level) => (
-            <span
-              key={level}
-              aria-hidden="true"
-              className={`size-3 rounded-[2px] ${levelCls(level)}`}
-            />
-          ))}
-          <span>{t.heatmap.more}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ---------------- time allocation panel ---------------- */
 

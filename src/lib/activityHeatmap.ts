@@ -9,7 +9,16 @@
  * in. Returns oldest-first, one entry per calendar day.
  */
 
-import { addDays, isValidTimestamp, startOfWeek, toLocalDay } from "./dates";
+import {
+  addDays,
+  addMonths,
+  daysInMonth,
+  isValidTimestamp,
+  startOfMonth,
+  startOfWeek,
+  toLocalDay,
+  weekdayOf,
+} from "./dates";
 import type { FocusSession, Habit, HabitLog, LocalDay, Task } from "./types";
 
 /** One cell of the heatmap grid. */
@@ -95,4 +104,64 @@ export function activityHeatmap(
     cells.push({ day, count, level: activityLevel(count) });
   }
   return cells;
+}
+
+/** One cell inside a month block, with explicit grid placement. */
+export interface MonthCell {
+  day: LocalDay;
+  row: number; // 1..7
+  col: number; // 1..cols
+  count: number;
+  level: number;
+  isPast: boolean; // day is on or before today
+}
+
+/** One month block of the monthly heatmap grid. */
+export interface MonthBlock {
+  year: number;
+  month: number; // 1..12
+  offset: number; // leading empty cells before day 1 (0..6)
+  cols: number;   // number of columns spanned (1..7)
+  cells: MonthCell[];
+}
+
+/**
+ * Slice the 52-week heatmap into 12 calendar month blocks ending in today's
+ * month, oldest first. Reuses the existing per-day counting (activityHeatmap
+ * output) — no duplication of the counting logic. Pure: today/weekStartsOn
+ * are passed in.
+ */
+export function monthBlocks(
+  heatmap: ActivityCell[],
+  today: LocalDay,
+  weekStartsOn: number,
+): MonthBlock[] {
+  const byDay = new Map<LocalDay, ActivityCell>();
+  for (const cell of heatmap) byDay.set(cell.day, cell);
+
+  const blocks: MonthBlock[] = [];
+  // Build oldest-first: start 11 months before today's month.
+  let cursor = addMonths(startOfMonth(today), -11);
+  for (let i = 0; i < 12; i++) {
+    const firstDay = cursor;
+    const year = Number(firstDay.slice(0, 4));
+    const monthNum = Number(firstDay.slice(5, 7));
+    const weekdayIndexOfFirst = weekdayOf(firstDay);
+    const offset = (weekdayIndexOfFirst - weekStartsOn + 7) % 7;
+    const days = daysInMonth(firstDay);
+    const cols = Math.ceil((offset + days) / 7);
+    const cells: MonthCell[] = [];
+    for (let d = 1; d <= days; d++) {
+      const dayKey = addDays(firstDay, d - 1);
+      const cell = byDay.get(dayKey);
+      const count = cell?.count ?? 0;
+      const level = cell?.level ?? 0;
+      const row = ((offset + d - 1) % 7) + 1;
+      const col = Math.floor((offset + d - 1) / 7) + 1;
+      cells.push({ day: dayKey, row, col, count, level, isPast: dayKey <= today });
+    }
+    blocks.push({ year, month: monthNum, offset, cols, cells });
+    cursor = addMonths(cursor, 1);
+  }
+  return blocks;
 }
