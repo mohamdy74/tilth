@@ -225,10 +225,10 @@ describe("T3: SSR render (renderToStaticMarkup)", () => {
     expect(grid).not.toContain('gridColumn:"1"');
   });
 
-  it("cells carry explicit gridColumn/gridRow placement", () => {
+  it("cells carry explicit grid-column/grid-row placement", () => {
     const html = render("2026-12-15", 6);
-    expect(html).toContain("gridColumn:");
-    expect(html).toContain("gridRow:");
+    expect(html).toContain("grid-column:");
+    expect(html).toContain("grid-row:");
   });
 });
 
