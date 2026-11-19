@@ -187,8 +187,8 @@ function DashboardPage() {
           <button
             type="button"
             onClick={() => {
-              const { ids, previous } = recovery.resetWeek();
-              showToast(t.recovery.done, {
+              const { previous } = recovery.resetWeek();
+              toast(t.recovery.done, {
                 action: {
                   label: t.tasks.toasts.undo,
                   onClick: () => {

@@ -457,8 +457,13 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
         label: t.command.newTask,
         icon: Plus,
         run: () => {
+          try {
+            window.sessionStorage.setItem("tilth.new-task", "1");
+          } catch {
+            /* continue to the task list if session storage is unavailable */
+          }
           onClose();
-          setCaptureOpen(true);
+          navigate({ to: "/tasks" });
         },
       },
       {

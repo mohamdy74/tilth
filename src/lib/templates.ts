@@ -121,7 +121,10 @@ export function templateFor(
 }
 
 /** Habit template copy for the asked locale, or null for unknown ids. */
-export function habitTemplateFor(id: string, locale: TemplateLocale): HabitTemplate | null {
+export function habitTemplateFor(
+  id: string,
+  locale: TemplateLocale,
+): Omit<HabitTemplate, "name" | "description"> & { name: string; description: string } | null {
   const tpl = HABIT_TEMPLATES.find((t) => t.id === id);
   if (!tpl) return null;
   return {
@@ -132,7 +135,10 @@ export function habitTemplateFor(id: string, locale: TemplateLocale): HabitTempl
 }
 
 /** Task template copy for the asked locale, or null for unknown ids. */
-export function taskTemplateFor(id: string, locale: TemplateLocale): TaskTemplate | null {
+export function taskTemplateFor(
+  id: string,
+  locale: TemplateLocale,
+): Omit<TaskTemplate, "title" | "notes"> & { title: string; notes?: string | undefined } | null {
   const tpl = TASK_TEMPLATES.find((t) => t.id === id);
   if (!tpl) return null;
   return {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { activityHeatmap, activityLevel, HEAT_DAYS, HEAT_WEEKS } from "./activityHeatmap";
-import type { FocusSession, Habit, HabitLog, LocalDay, Priority, Task, TaskStatus } from "./types";
+import type { FocusSession, HabitLog, LocalDay, Priority, Task, TaskStatus } from "./types";
 
 const today: LocalDay = "2026-11-16";
 
@@ -16,18 +16,6 @@ function task(overrides: Partial<Task> = {}): Task {
     createdAt: "2026-11-01T08:00:00Z",
     updatedAt: "2026-11-01T08:00:00Z",
     kanbanOrder: 0,
-    ...overrides,
-  };
-}
-
-function habit(overrides: Partial<Habit> = {}): Habit {
-  return {
-    id: "h1",
-    name: "Habit",
-    schedule: { type: "daily", days: [0, 1, 2, 3, 4, 5, 6] },
-    archived: false,
-    createdAt: "2026-11-01T08:00:00Z",
-    updatedAt: "2026-11-01T08:00:00Z",
     ...overrides,
   };
 }
@@ -81,8 +69,8 @@ describe("activityHeatmap", () => {
   it("returns exactly 52*7 cells, oldest first", () => {
     const cells = activityHeatmap([], [], [], [], opts);
     expect(cells.length).toBe(HEAT_WEEKS * HEAT_DAYS);
-    expect(cells[0].day).toBe("2025-11-24");
-    expect(cells[cells.length - 1].day).toBe("2026-11-22");
+    expect(cells[0]?.day).toBe("2025-11-24");
+    expect(cells[cells.length - 1]?.day).toBe("2026-11-22");
     expect(cells.every((c) => c.level >= 0 && c.level <= 4)).toBe(true);
   });
 

@@ -46,8 +46,8 @@ describe("distractionsByDay", () => {
   it("returns a point per day in the window", () => {
     const by = distractionsByDay([], today);
     expect(by.length).toBe(7);
-    expect(by[0].day).toBe("2026-11-10");
-    expect(by[6].day).toBe("2026-11-16");
+    expect(by[0]?.day).toBe("2026-11-10");
+    expect(by[6]?.day).toBe("2026-11-16");
     expect(by.every((d) => d.count === 0)).toBe(true);
   });
 });

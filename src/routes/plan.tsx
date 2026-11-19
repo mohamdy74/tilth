@@ -131,8 +131,9 @@ function PlanPage() {
   );
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const suggestion = useMemo(() => {
-    if (openHigh.length === 0) return undefined;
-    return suggestTaskStart(openHigh[0], allTasks, {
+    const task = openHigh[0];
+    if (!task) return undefined;
+    return suggestTaskStart(task, allTasks, {
       today,
       days: 28,
       dayStartHour: settings.dayStartHour,
@@ -251,13 +252,13 @@ function PlanPage() {
         }
       />
 
-      {suggestion && (
+      {suggestion && openHigh[0] && (
         <div className="mt-4 panel flex items-center gap-3 p-3">
           <Clock className="size-5 shrink-0 text-primary" aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="text-sm font-medium">{t.energy.title}</span>
             <span className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-              {openHigh[0].title}
+              {openHigh[0]?.title}
               <span className="inline-flex items-center gap-1 rounded border border-accent/40 px-2 py-0.5 text-[11px] text-accent">
                 {suggestion.label}
               </span>

@@ -5,13 +5,11 @@ import {
   upcomingDeadlines,
   habitsDueToday,
 } from "@/lib/dashboard";
-import { habitStreaks, consistency30, isScheduledOn } from "@/lib/streaks";
-import { insightsReport } from "@/lib/insights";
-import { weeklyReview } from "@/lib/insights";
-import { taskCompletionsByDay, habitConsistencyByDay, focusMinutesByDay } from "@/lib/insights";
-import { remainingMs, workMinutesToday } from "@/lib/focusTime";
+import { habitStreaks, consistency30 } from "@/lib/streaks";
+import { insightsReport, weeklyReview } from "@/lib/insights";
+import { workMinutesToday } from "@/lib/focusTime";
 import { parseQuickAdd } from "@/lib/quickAdd";
-import type { Task, Habit, HabitLog, FocusSession, XpLedgerEntry } from "@/lib/types";
+import type { Task, Habit, HabitLog, FocusSession } from "@/lib/types";
 
 const today = "2026-11-16";
 

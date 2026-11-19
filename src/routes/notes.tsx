@@ -273,7 +273,7 @@ function NoteEditor({
   onDone: () => void;
   onDelete: () => void;
 }) {
-  const { t } = usePrefs();
+  const { t, locale } = usePrefs();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const [linkedTaskId, setLinkedTaskId] = useState(note.linkedTaskId ?? "");
@@ -291,7 +291,7 @@ function NoteEditor({
     if (items.length === 0) return;
     const created: string[] = [];
     for (const it of items) {
-      const task = taskApi.add({ title: it.title, notes: body, linkedTaskId: note.id });
+      const task = taskApi.add({ title: it.title, notes: body });
       created.push(task.id);
     }
     toast(t.checklist.done.replace("{n}", formatNumber(locale, items.length)), {

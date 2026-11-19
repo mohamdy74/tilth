@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { suggestTaskStart, topCompletionHour } from "./energy";
-import type { LocalDay, Priority, RecurrenceRule, Task, TaskStatus } from "./types";
+import type { LocalDay, Task } from "./types";
 
 const today: LocalDay = "2026-11-16";
 const opts = { today, days: 28, dayStartHour: 0, timeZone: "UTC" };

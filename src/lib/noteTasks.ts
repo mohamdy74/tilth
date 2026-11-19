@@ -21,8 +21,9 @@ export function extractChecklistTasks(note: Note): ChecklistTaskInput[] {
     }
     if (inCode) continue;
     const m = line.match(/^[-*]\s*\[\s*\]\s+(.+)$/);
-    if (m) {
-      items.push({ title: m[1].trim(), linkedTaskId: note.id });
+    const title = m?.[1]?.trim();
+    if (title) {
+      items.push({ title, linkedTaskId: note.id });
     }
   }
   return items;

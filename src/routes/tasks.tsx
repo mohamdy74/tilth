@@ -227,7 +227,7 @@ function TasksPage() {
     const prev = task.dueDate;
     const next = addDays(today, 1);
     taskApi.update(task.id, { dueDate: next });
-    showToast(t.tasks.toasts.postponed, {
+    toast(t.tasks.toasts.postponed, {
       action: {
         label: t.tasks.toasts.undo,
         onClick: () => taskApi.update(task.id, { dueDate: prev }),
