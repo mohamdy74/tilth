@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Coins,
   Lock,
   Palette,
@@ -245,6 +247,8 @@ function AchievementsGallery() {
   const ps = progressState(useStore());
   const live = unlocks.filter((u) => !u.deletedAt);
   const byId = new Map(live.map((u) => [u.achievementId, u] as const));
+  const unlocked = ACHIEVEMENTS.filter((a) => byId.has(a.id));
+  const locked = ACHIEVEMENTS.filter((a) => !byId.has(a.id));
   return (
     <div className="panel p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -260,11 +264,30 @@ function AchievementsGallery() {
             .replace("{total}", formatNumber(locale, ACHIEVEMENTS.length))}
         </span>
       </div>
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {ACHIEVEMENTS.map((a) => (
-          <AchievementCard key={a.id} def={a} ps={ps} unlock={byId.get(a.id) ?? null} />
-        ))}
-      </ul>
+
+      <div className="mb-4">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {t.rew.unlocked} ({unlocked.length})
+        </h3>
+        <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {unlocked.map((a) => (
+            <AchievementCard key={a.id} def={a} ps={ps} unlock={byId.get(a.id)!} />
+          ))}
+        </ul>
+      </div>
+
+      {locked.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t.rew.locked} ({locked.length})
+          </h3>
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {locked.map((a) => (
+              <AchievementCard key={a.id} def={a} ps={ps} unlock={null} />
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -282,6 +305,7 @@ function AchievementCard({
   const Icon = ACHIEVEMENT_ICONS[def.id] ?? Trophy;
   const unlocked = unlock !== null;
   const p = unlocked ? null : def.progress(ps);
+  const [briefOpen, setBriefOpen] = useState(false);
   return (
     <li
       className={
@@ -342,6 +366,21 @@ function AchievementCard({
           ) : (
             <p className="mt-1 text-xs text-muted-foreground">{t.rew.locked}</p>
           )}
+          <button
+            type="button"
+            onClick={() => setBriefOpen((o) => !o)}
+            aria-expanded={briefOpen}
+            aria-label={t.rew.howToUnlock.replace("{name}", t.ach[def.id].name)}
+            className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-primary transition-colors hover:text-primary/80"
+          >
+            {briefOpen ? (
+              <ChevronUp className="size-3.5" aria-hidden />
+            ) : (
+              <ChevronDown className="size-3.5" aria-hidden />
+            )}
+            {t.rew.howTo}
+          </button>
+          {briefOpen && <p className="mt-1.5 text-xs text-muted-foreground">{def.brief}</p>}
         </div>
       </div>
     </li>

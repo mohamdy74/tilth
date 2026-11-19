@@ -173,6 +173,8 @@ const en = {
     ambienceRain: "Rain",
     ambienceBrown: "Deep hum",
     ambienceWhite: "Soft static",
+    ambienceForest: "Forest",
+    ambienceOcean: "Ocean",
     mode: { pomodoro: "Pomodoro", custom: "Custom" },
     work: "Work",
     break: "Break",
@@ -257,6 +259,9 @@ const en = {
     unlockedCount: "{n} of {total} unlocked",
     unlockedOn: "Unlocked {date}",
     locked: "Locked",
+    unlocked: "Completed",
+    howTo: "How to",
+    howToUnlock: "How to unlock “{name}”",
   },
 
   ach: {
@@ -894,6 +899,8 @@ const ar: Dict = {
     ambienceRain: "مطر",
     ambienceBrown: "همهمة عميقة",
     ambienceWhite: "تشويش ناعم",
+    ambienceForest: "غابة",
+    ambienceOcean: "محيط",
     mode: { pomodoro: "بومودورو", custom: "مخصص" },
     work: "تركيز",
     break: "استراحة",
@@ -978,6 +985,9 @@ const ar: Dict = {
     unlockedCount: "{n} من {total} مفتوحة",
     unlockedOn: "فُتح في {date}",
     locked: "مقفل",
+    unlocked: "منجزة",
+    howTo: "كيف",
+    howToUnlock: "كيفية فتح “{name}”",
   },
 
   ach: {

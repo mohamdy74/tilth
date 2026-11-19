@@ -84,6 +84,8 @@ export interface Achievement {
   predicate: (s: AchievementState) => boolean;
   /** current/target where a number is meaningful; null otherwise. */
   progress: (s: AchievementState) => { current: number; target: number } | null;
+  /** Plain-language "how to unlock" brief, shown when the user taps the card. */
+  brief: string;
 }
 
 const live = <T extends { deletedAt?: string | undefined }>(l: T[]) =>
@@ -289,6 +291,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Sprout",
     predicate: (s) => validatedTaskCount(s) >= 1,
     progress: (s) => ({ current: Math.min(validatedTaskCount(s), 1), target: 1 }),
+    brief: "Complete any one task.",
   },
   // Validated data: distinct live "task" ledger entries.
   {
@@ -296,6 +299,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "ListTodo",
     predicate: (s) => validatedTaskCount(s) >= 10,
     progress: (s) => ({ current: validatedTaskCount(s), target: 10 }),
+    brief: "Complete 10 tasks in total.",
   },
   {
     id: "tasksFifty",
@@ -303,6 +307,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Layers",
     predicate: (s) => validatedTaskCount(s) >= 50,
     progress: (s) => ({ current: validatedTaskCount(s), target: 50 }),
+    brief: "Complete 50 tasks in total.",
   },
   {
     id: "tasksTwoHundred",
@@ -310,6 +315,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "BookOpen",
     predicate: (s) => validatedTaskCount(s) >= 200,
     progress: (s) => ({ current: validatedTaskCount(s), target: 200 }),
+    brief: "Complete 200 tasks in total.",
   },
   // Validated data: live "habit" ledger entries.
   {
@@ -317,6 +323,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Leaf",
     predicate: (s) => validatedHabitEntries(s).length >= 1,
     progress: (s) => ({ current: Math.min(validatedHabitEntries(s).length, 1), target: 1 }),
+    brief: "Log any habit as done.",
   },
   // Validated data: habit streaks over done logs (habitStreaks, streaks.ts).
   {
@@ -324,6 +331,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Flame",
     predicate: (s) => bestStreak(s) >= 7,
     progress: (s) => ({ current: bestStreak(s), target: 7 }),
+    brief: "Keep a habit streak alive for 7 days in a row.",
   },
   {
     id: "streakThirty",
@@ -331,6 +339,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Mountain",
     predicate: (s) => bestStreak(s) >= 30,
     progress: (s) => ({ current: bestStreak(s), target: 30 }),
+    brief: "Keep a habit streak alive for 30 days in a row.",
   },
   {
     id: "streakHundred",
@@ -338,6 +347,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Gem",
     predicate: (s) => bestStreak(s) >= 100,
     progress: (s) => ({ current: bestStreak(s), target: 100 }),
+    brief: "Keep a habit streak alive for 100 days in a row.",
   },
   // Validated data: completed work sessions (the same ones the engine pays for).
   {
@@ -345,6 +355,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Timer",
     predicate: (s) => completedWorkSessions(s).length >= 1,
     progress: (s) => ({ current: Math.min(completedWorkSessions(s).length, 1), target: 1 }),
+    brief: "Finish one focus session.",
   },
   {
     id: "focusTenHours",
@@ -352,6 +363,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Hourglass",
     predicate: (s) => focusMinutes(s) >= 600,
     progress: (s) => ({ current: focusMinutes(s), target: 600 }),
+    brief: "Accumulate 10 hours (600 minutes) of completed focus.",
   },
   {
     id: "focusFiftyHours",
@@ -359,6 +371,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Clock",
     predicate: (s) => focusMinutes(s) >= 3000,
     progress: (s) => ({ current: focusMinutes(s), target: 3000 }),
+    brief: "Accumulate 50 hours (3000 minutes) of completed focus.",
   },
   // Validated data: today due tasks (validated completions) + due habits (done logs).
   {
@@ -369,6 +382,7 @@ export const ACHIEVEMENTS: Achievement[] = [
       return p.target > 0 && p.current === p.target;
     },
     progress: perfectDayProgress,
+    brief: "Finish every task and habit due today.",
   },
   // Validated data: live "task" entries whose task completed before 09:00.
   {
@@ -376,6 +390,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Sunrise",
     predicate: (s) => earlyBirdCount(s) >= 5,
     progress: (s) => ({ current: earlyBirdCount(s), target: 5 }),
+    brief: "Complete 5 tasks before 9:00 AM.",
   },
   // Validated data: activity days derived from live ledger entries.
   {
@@ -383,6 +398,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Undo2",
     predicate: hasComebackGap,
     progress: () => null,
+    brief: "Return to Tilth after 7+ days with no activity.",
   },
   // Validated data: level from totalsFromLedger over the live ledger.
   {
@@ -390,6 +406,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Award",
     predicate: (s) => totalsFromLedger(s.xpLedger).level >= 5,
     progress: (s) => ({ current: totalsFromLedger(s.xpLedger).level, target: 5 }),
+    brief: "Earn enough XP to reach level 5.",
   },
   {
     id: "levelTen",
@@ -397,6 +414,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Trophy",
     predicate: (s) => totalsFromLedger(s.xpLedger).level >= 10,
     progress: (s) => ({ current: totalsFromLedger(s.xpLedger).level, target: 10 }),
+    brief: "Earn enough XP to reach level 10.",
   },
   // Validated data: live "shop" entries with negative coins (the /rewards shop).
   {
@@ -404,6 +422,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "ShoppingBag",
     predicate: (s) => purchaseCount(s) >= 1,
     progress: (s) => ({ current: Math.min(purchaseCount(s), 1), target: 1 }),
+    brief: "Buy any item from your shop.",
   },
   // Validated data: meta.lastExportedAt, stamped on every real export.
   {
@@ -411,6 +430,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Download",
     predicate: (s) => s.lastExportedAt !== undefined,
     progress: () => null,
+    brief: "Export a backup of your Tilth data.",
   },
   // Validated data: consistency30 over done logs (streaks.ts).
   {
@@ -424,6 +444,7 @@ export const ACHIEVEMENTS: Achievement[] = [
       current: bestConsistency(s) === null ? 0 : Math.round(bestConsistency(s)! * 100),
       target: 80,
     }),
+    brief: "Keep 80%+ habit consistency over a month.",
   },
   // Validated data: distraction-free completed work sessions, most recent first.
   {
@@ -431,6 +452,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "BellOff",
     predicate: (s) => distractionFreeRun(s) >= 3,
     progress: (s) => ({ current: distractionFreeRun(s), target: 3 }),
+    brief: "Finish 3 focus sessions in a row with zero distractions logged.",
   },
   // Validated data: completed work minutes per day vs the focus target.
   {
@@ -438,6 +460,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "Target",
     predicate: (s) => bestTargetRun(s) >= 7,
     progress: (s) => ({ current: bestTargetRun(s), target: 7 }),
+    brief: "Hit your daily focus target 7 days in a row.",
   },
   // Validated data: completed work minutes stored on one localDay.
   {
@@ -446,6 +469,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     tier: "silver",
     predicate: (s) => bestFocusDayMinutes(s) >= 120,
     progress: (s) => ({ current: bestFocusDayMinutes(s), target: 120 }),
+    brief: "Focus for 120 minutes in a single day.",
   },
   // Validated data: live "task" entries whose task completedAt hour >= 21.
   {
@@ -454,6 +478,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     tier: "bronze",
     predicate: (s) => nightOwlCount(s) >= 10,
     progress: (s) => ({ current: nightOwlCount(s), target: 10 }),
+    brief: "Complete 10 tasks after 9:00 PM.",
   },
   // Validated data: live "shop" ledger entries (coins actually spent).
   {
@@ -462,6 +487,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     tier: "bronze",
     predicate: (s) => purchaseCount(s) >= 5,
     progress: (s) => ({ current: purchaseCount(s), target: 5 }),
+    brief: "Redeem 5 rewards from your shop.",
   },
   // Validated data: consecutive days carrying a live "habit" entry.
   {
@@ -470,6 +496,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     tier: "silver",
     predicate: (s) => bestHabitDayRun(s) >= 7,
     progress: (s) => ({ current: bestHabitDayRun(s), target: 7 }),
+    brief: "Log a habit as done 7 days in a row.",
   },
   // Validated data: coins derived from positive ledger XP (never from spending).
   {
@@ -478,6 +505,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     tier: "silver",
     predicate: (s) => coinsEarned(s) >= 500,
     progress: (s) => ({ current: coinsEarned(s), target: 500 }),
+    brief: "Earn 500 coins in total from XP.",
   },
   // Validated data: live "habit" ledger entries (once per habit per day).
   {
@@ -486,6 +514,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     tier: "gold",
     predicate: (s) => validatedHabitEntries(s).length >= 100,
     progress: (s) => ({ current: validatedHabitEntries(s).length, target: 100 }),
+    brief: "Log 100 habit done-days in total.",
   },
 ];
 

@@ -712,7 +712,11 @@ function AmbienceSelect({
         ? t.focus.ambienceRain
         : k === "brown"
           ? t.focus.ambienceBrown
-          : t.focus.ambienceWhite;
+          : k === "white"
+            ? t.focus.ambienceWhite
+            : k === "forest"
+              ? t.focus.ambienceForest
+              : t.focus.ambienceOcean;
   return (
     <label
       className={
@@ -730,7 +734,7 @@ function AmbienceSelect({
           " h-8 min-w-0 max-w-full truncate rounded-md border border-border bg-card px-2 text-xs text-foreground"
         }
       >
-        {(["off", "rain", "brown", "white"] as AmbienceKind[]).map((k) => (
+        {(["off", "rain", "brown", "white", "forest", "ocean"] as AmbienceKind[]).map((k) => (
           <option key={k} value={k}>
             {t.focus.ambience + ": " + label(k)}
           </option>
