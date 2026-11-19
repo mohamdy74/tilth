@@ -163,8 +163,8 @@ describe("T2: month options", () => {
 describe("T3: SSR render (renderToStaticMarkup)", () => {
   it("cell 28px x 28px via inline style", () => {
     const html = render("2026-12-15", 6);
-    expect(html).toContain("w-[28px]");
-    expect(html).toContain("h-[28px]");
+    expect(html).toContain("width:28px");
+    expect(html).toContain("height:28px");
   });
 
   it("grid-template-columns repeat(cols,28px), rows repeat(7,28px), gap 6px", () => {
@@ -205,10 +205,10 @@ describe("T3: SSR render (renderToStaticMarkup)", () => {
 
   it("legend has 5 swatches of 16px and NO digits in legend text", () => {
     const html = render("2026-12-15", 6);
-    const levelSwatches = html.match(/w-\[16px\][^>]*bg-/g);
-    expect(levelSwatches).toHaveLength(5);
+    const levelSwatches = html.match(/width:16px;height:16px[^>]*>/g);
+    expect(levelSwatches).toHaveLength(6); // 5 level swatches + 1 today swatch
     const legendRight = html.match(
-      /<div class="flex items-center gap-1\.5 text-right"[^>]*>(.*?)<\/div>/s,
+      /aria-label="Less — More"[^>]*>(.*?)<\/div>/s,
     )?.[1] ?? "";
     const textNodes = legendRight.match(/>([^<]+)</g) ?? [];
     const textContent = textNodes.join("");
@@ -216,10 +216,19 @@ describe("T3: SSR render (renderToStaticMarkup)", () => {
     expect(/[٠-٩]/.test(textContent)).toBe(false);
   });
 
-  it("root dir=ltr", () => {
+  it("weekday labels live OUTSIDE the cell grid, blocks dir=ltr", () => {
     const html = render("2026-12-15", 6);
-    expect(html).toContain('data-hm-root="true"');
+    expect(html).toContain('data-hm-block');
     expect(html).toContain('dir="ltr"');
+    // no span inside the grid owns a gridColumn of its own besides cells
+    const grid = html.match(/data-hm-grid[\s\S]*?<\/div>/)?.[0] ?? "";
+    expect(grid).not.toContain('gridColumn:"1"');
+  });
+
+  it("cells carry explicit gridColumn/gridRow placement", () => {
+    const html = render("2026-12-15", 6);
+    expect(html).toContain("gridColumn:");
+    expect(html).toContain("gridRow:");
   });
 });
 
