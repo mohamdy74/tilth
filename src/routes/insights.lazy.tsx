@@ -2,6 +2,7 @@ import { createLazyFileRoute } from "@tanstack/react-router";
 import {
   CalendarCheck,
   Clock,
+  Flame,
   SkipForward,
   Timer,
   TrendingDown,
@@ -40,6 +41,8 @@ import {
   type InsightsReport,
   type Observation,
 } from "@/lib/insights";
+import { activityHeatmap, type ActivityCell, HEAT_DAYS } from "@/lib/activityHeatmap";
+import type { LocalDay } from "@/lib/types";
 import { tasks as taskApi, todayLocal, useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { OUTLINE_BTN } from "@/components/ui/button";
@@ -70,6 +73,7 @@ function InsightsPage() {
   const focusSessions = useStore((s) => s.focusSessions);
   const xpLedger = useStore((s) => s.xpLedger);
   const dayStartHour = useStore((s) => s.settings.dayStartHour);
+  const weekStartsOn = useStore((s) => s.settings.weekStartsOn);
   const targetMinutes = useStore((s) => s.settings.dailyFocusTargetMinutes);
   const [range, setRange] = useState<"weekly" | "monthly">("weekly");
 
@@ -94,6 +98,12 @@ function InsightsPage() {
   const habitSeries = habitConsistencyByDay(habits, habitLogs, { today, days });
   const focusSeries = focusMinutesByDay(focusSessions, { today, days });
   const allocationSeries = timeAllocation(tasks, focusSessions, { today, days });
+  const heatmapSeries = activityHeatmap(tasks, habits, habitLogs, focusSessions, {
+    today,
+    weekStartsOn,
+    dayStartHour,
+    timeZone: tz,
+  });
 
   const totalOf = (s: DayPoint[]) => s.reduce((sum, p) => sum + (p.value ?? 0), 0);
   const taskTotal = totalOf(taskSeries);
@@ -321,6 +331,7 @@ function InsightsPage() {
       <AggregatePanels />
 
       <TimeAllocationPanel allocation={allocationSeries} />
+      <HeatmapPanel heatmap={heatmapSeries} today={today} />
 
       <ObservationsPanel report={report} />
     </section>
@@ -651,6 +662,97 @@ function AggregatePanels() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ---------------- activity heatmap (GitHub-style) ---------------- */
+
+function HeatmapPanel({
+  heatmap,
+  today,
+  weekStartsOn,
+}: {
+  heatmap: ActivityCell[];
+  today: LocalDay;
+  weekStartsOn: number;
+}) {
+  const { t, locale } = usePrefs();
+  // Day order within each week column, starting at the week's first day.
+  const weekdayOrder = [...Array(HEAT_DAYS)].map((_, i) => (weekStartsOn + i) % HEAT_DAYS);
+  const weekdayLabel = (d: number) =>
+    new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", {
+      weekday: "narrow",
+      timeZone: "UTC",
+    }).format(new Date(Date.UTC(2023, 0, 1 + d)));
+  const levelCls = (level: number) => {
+    switch (level) {
+      case 1:
+        return "bg-accent/20";
+      case 2:
+        return "bg-accent/40";
+      case 3:
+        return "bg-accent/60";
+      case 4:
+        return "bg-accent/80";
+      default:
+        return "bg-muted/20";
+    }
+  };
+  const byDay = new Map(heatmap.map((c) => [c.day, c]));
+  const weekCount = Math.ceil(heatmap.length / HEAT_DAYS);
+
+  return (
+    <div className="panel mt-4 p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <span className="text-primary">
+            <Flame className="size-4" aria-hidden />
+          </span>
+          <h2 className="text-sm font-semibold">{t.heatmap.title}</h2>
+        </div>
+      </div>
+      <p className="mb-3 text-xs text-muted-foreground">{t.heatmap.subtitle}</p>
+      <div className="mt-2 flex items-end gap-1">
+        {weekdayOrder.map((d) => (
+          <span key={d} className="w-[16px] shrink-0 text-[10px] text-muted-foreground text-center">
+            {weekdayLabel(d)}
+          </span>
+        ))}
+      </div>
+      <div className="mt-1 flex gap-0.5">
+        {Array.from({ length: weekCount }).map((_, wi) => (
+          <div key={wi} className="flex flex-col gap-0.5">
+            {weekdayOrder.map((dOffset) => {
+              const cell = heatmap[wi * HEAT_DAYS + dOffset];
+              const isToday = cell.day === today;
+              return (
+                <span
+                  key={cell.day}
+                  title={
+                    formatDate(locale, new Date(cell.day + "T12:00:00Z"), {
+                      dateStyle: "medium",
+                    }) +
+                    " — " +
+                    cell.count +
+                    " " +
+                    t.review.tasks
+                  }
+                  className={`size-4 rounded shrink-0 ${levelCls(cell.level)} ${
+                    isToday ? "ring-1 ring-accent" : ""
+                  }`}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground tabular-nums">
+        <span className="w-[16px] h-[16px] rounded bg-muted/20 inline-block mr-1.5" />
+        {t.review.noActivity}
+        <span className="ml-3 w-[16px] h-[16px] rounded bg-accent/80 inline-block mr-1.5" />
+        {t.review.mostActivity}
+      </p>
     </div>
   );
 }

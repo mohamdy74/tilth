@@ -745,6 +745,12 @@ const en = {
   },
   badge: { bronze: "Bronze", silver: "Silver", gold: "Gold" },
   notifActions: { done: "Mark done", snooze: "Snooze 1h" },
+  heatmap: {
+    title: "Activity",
+    subtitle: "Completed tasks, done habits and finished focus sessions — one cell per day.",
+    noActivity: "Less",
+    mostActivity: "More",
+  },
 };
 
 type Dict = typeof en;
@@ -1464,6 +1470,12 @@ const ar: Dict = {
   },
   badge: { bronze: "برونزي", silver: "فضي", gold: "ذهبي" },
   notifActions: { done: "وضع تم", snooze: "غفوة ساعة" },
+  heatmap: {
+    title: "النشاط",
+    subtitle: "المهام المكتملة والعادات المنجزة وجلسات التركيز المنتهية — خلية لكل يوم.",
+    noActivity: "أقل",
+    mostActivity: "أكثر",
+  },
 };
 
 export const dictionaries: Record<Locale, Dict> = { en, ar };
