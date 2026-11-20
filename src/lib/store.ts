@@ -19,6 +19,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   STORAGE_KEYS,
   type CollectionKey,
+  type DashboardLayout,
   type LocalDay,
   type FocusSession,
   type Habit,
@@ -42,6 +43,13 @@ import { httpTransport, tilthTransport, type SyncTransport } from "./syncTranspo
 const nowIso = () => new Date().toISOString();
 const uid = () => crypto.randomUUID();
 
+export function defaultDashboardLayout(): DashboardLayout {
+  return {
+    cardOrder: ["priorities", "progress", "deadlines", "habits", "focus", "level", "achievements"],
+    density: "comfortable",
+  };
+}
+
 export function defaultSettings(language: "en" | "ar" = "en"): Settings {
   return {
     language,
@@ -58,6 +66,7 @@ export function defaultSettings(language: "en" | "ar" = "en"): Settings {
       level: true,
       achievements: true,
     },
+    dashboardLayout: defaultDashboardLayout(),
     dailyFocusTargetMinutes: 100,
     updatedAt: nowIso(),
   };

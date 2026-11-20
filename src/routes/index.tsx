@@ -38,6 +38,7 @@ import {
   todayLocal,
   useStore,
   recovery,
+  defaultDashboardLayout,
 } from "@/lib/store";
 import { currentTimeZone, toLocalDay } from "@/lib/dates";
 import { digestFor } from "@/lib/digest";
@@ -81,6 +82,10 @@ function DashboardPage() {
   const allLogs = useStore((s) => s.habitLogs);
   const allSessions = useStore((s) => s.focusSessions);
   const cards = useStore((s) => s.settings.dashboardCards);
+  const layout = useStore((s) => s.settings.dashboardLayout ?? defaultDashboardLayout());
+  /** Visible dashboard cards in the user's remembered order (P0 customization). */
+  const order = layout.cardOrder.filter((c) => cards[c]);
+  const gap = layout.density === "compact" ? "gap-2" : "gap-4";
   const target = useStore((s) => s.settings.dailyFocusTargetMinutes);
   const dayStartHour = useStore((s) => s.settings.dayStartHour);
 
@@ -240,41 +245,52 @@ function DashboardPage() {
           </Link>
         </div>
       ) : (
-        <div className="stagger mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {cards.priorities && (
-            <PrioritiesCard
-              items={priorities.slice(0, MAX_ROWS)}
-              moreCount={Math.max(0, priorities.length - MAX_ROWS)}
-              today={today}
-              onComplete={completeTask}
-              footer={footerLink("/tasks", t.dash.viewAll)}
-            />
-          )}
-          {cards.progress && <ProgressCard progress={progress} />}
-          {cards.deadlines && (
-            <DeadlinesCard
-              items={deadlines.slice(0, MAX_ROWS)}
-              moreCount={Math.max(0, deadlines.length - MAX_ROWS)}
-              today={today}
-              footer={footerLink("/tasks", t.dash.viewAll)}
-            />
-          )}
-          {cards.habits && (
-            <HabitsCard
-              items={dueHabits}
-              onToggle={toggleHabit}
-              footer={footerLink("/habits", t.dash.viewAll)}
-            />
-          )}
-          {cards.focus && (
-            <FocusCard
-              minutes={focusMinutes}
-              target={target}
-              footer={footerLink("/focus", t.dash.startFocus)}
-            />
-          )}
-          {cards.level && <LevelCard />}
-          {cards.achievements && <AchievementsCard />}
+        <div className={`stagger mt-6 grid grid-cols-1 ${gap} md:grid-cols-2 xl:grid-cols-3`}>
+          {order.map((c) => {
+            const base = { today, footer: footerLink("/tasks", t.dash.viewAll) };
+            switch (c) {
+              case "priorities":
+                return (
+                  <PrioritiesCard
+                    key="priorities"
+                    {...base}
+                    items={priorities.slice(0, MAX_ROWS)}
+                    moreCount={Math.max(0, priorities.length - MAX_ROWS)}
+                    onComplete={completeTask}
+                  />
+                );
+              case "progress":
+                return <ProgressCard key="progress" progress={progress} />;
+              case "deadlines":
+                return (
+                  <DeadlinesCard
+                    key="deadlines"
+                    {...base}
+                    items={deadlines.slice(0, MAX_ROWS)}
+                    moreCount={Math.max(0, deadlines.length - MAX_ROWS)}
+                  />
+                );
+              case "habits":
+                return (
+                  <HabitsCard key="habits" {...base} items={dueHabits} onToggle={toggleHabit} />
+                );
+              case "focus":
+                return (
+                  <FocusCard
+                    key="focus"
+                    minutes={focusMinutes}
+                    target={target}
+                    footer={footerLink("/focus", t.dash.startFocus)}
+                  />
+                );
+              case "level":
+                return <LevelCard key="level" />;
+              case "achievements":
+                return <AchievementsCard key="achievements" />;
+              default:
+                return null;
+            }
+          })}
         </div>
       )}
     </section>

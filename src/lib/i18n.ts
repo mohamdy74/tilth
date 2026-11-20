@@ -633,6 +633,9 @@ const en = {
       focusStart: "Start or pause a focus session",
       escape: "Close dialogs, cancel a session",
     },
+    density: "Information density",
+    densityComfortable: "Comfortable",
+    densityCompact: "Compact",
     cards: {
       priorities: "Priorities",
       progress: "Progress",
@@ -1347,6 +1350,9 @@ const ar: Dict = {
       focusStart: "بدء جلسة تركيز أو إيقافها مؤقتًا",
       escape: "إغلاق الحوارات وإلغاء الجلسة",
     },
+    density: "كثافة المعلومات",
+    densityComfortable: "مريح",
+    densityCompact: "مدمج",
     cards: {
       priorities: "الأولويات",
       progress: "التقدّم",

@@ -31,7 +31,13 @@ import { formatDate, formatNumber, type Locale } from "@/lib/i18n";
 import { parseQuickAdd } from "@/lib/quickAdd";
 import { buildTaskViews } from "@/lib/taskViews";
 import { TASK_TEMPLATES, taskTemplateFor } from "@/lib/templates";
-import { tasks as taskApi, views as viewsApi, todayLocal, useStore } from "@/lib/store";
+import {
+  tasks as taskApi,
+  views as viewsApi,
+  todayLocal,
+  useStore,
+  settings as settingsApi,
+} from "@/lib/store";
 import type { Priority, RecurrenceRule, Task, TaskBucket, TaskSort, TaskStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/tasks")({
@@ -63,9 +69,11 @@ function TasksPage() {
   const { t, locale } = usePrefs();
   const ready = useStore((s) => s.ready);
   const allTasks = useStore((s) => s.tasks);
-  const [view, setView] = useState<TaskBucket>("today");
-  const [mode, setMode] = useState<Mode>("list");
-  const [sort, setSort] = useState<TaskSort>("due");
+  /** Remembered per-user task-list presentation (P0 customization). */
+  const prefs = useStore((s) => s.settings.sectionPrefs?.tasks);
+  const [view, setView] = useState<TaskBucket>(prefs?.view ?? "today");
+  const [mode, setMode] = useState<Mode>(prefs?.mode ?? "list");
+  const [sort, setSort] = useState<TaskSort>(prefs?.sort ?? "due");
   const [savingView, setSavingView] = useState(false);
   const [viewName, setViewName] = useState("");
   const savedViews = useStore((st) => st.savedViews);
@@ -128,6 +136,28 @@ function TasksPage() {
       /* ignore */
     }
   }, [ready]);
+
+  // Hydrate the remembered task-list presentation from settings after the
+  // store has booted (P0 customization). Runs once.
+  useEffect(() => {
+    if (!ready) return;
+    const p = useStore.getState().settings.sectionPrefs?.tasks;
+    if (p) {
+      setView(p.view);
+      setMode(p.mode as Mode);
+      setSort(p.sort);
+    }
+  }, [ready]);
+
+  // Persist the user's task-list presentation whenever they change view,
+  // mode or sort. Debounced 250 ms by the store; never touches task data.
+  useEffect(() => {
+    if (!ready) return;
+    const current = useStore.getState().settings.sectionPrefs ?? {};
+    settingsApi.update({
+      sectionPrefs: { ...current, tasks: { view, mode: mode as "list" | "board", sort } },
+    });
+  }, [view, mode, sort, ready]);
 
   // TIL-F12 starter keyboard set for list triage: j/k move a row cursor, x
   // toggles completion with its undo toast, e opens the editor, Esc closes it.

@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   BellRing,
   Check,
   Database,
@@ -35,8 +37,9 @@ import {
   settings as settingsApi,
   sync,
   useStore,
+  defaultDashboardLayout,
 } from "@/lib/store";
-import { COLLECTION_KEYS, type DashboardCard, type SyncSettings } from "@/lib/types";
+import { COLLECTION_KEYS, type DashboardCard, type Density, type SyncSettings } from "@/lib/types";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -281,26 +284,81 @@ function DashboardCardsSection() {
   const { t } = usePrefs();
   const ready = useStore((s) => s.ready);
   const cards = useStore((s) => s.settings.dashboardCards);
+  const layout = useStore((s) => s.settings.dashboardLayout ?? defaultDashboardLayout());
   if (!ready) return <SkeletonPanel />;
+
+  const move = (from: number, to: number) => {
+    const next = [...layout.cardOrder];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved!);
+    settingsApi.update({ dashboardLayout: { ...layout, cardOrder: next } });
+  };
 
   return (
     <fieldset id="settings-cards" className="panel scroll-mt-6">
       <legend className="panel-title">{t.settings.dashboardCards}</legend>
       <p className="text-xs text-muted-foreground">{t.settings.dashboardHint}</p>
-      <ul className="mt-3 space-y-1">
-        {DASHBOARD_CARDS.map((c) => (
-          <li
-            key={c}
-            className="flex items-center justify-between gap-4 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/20"
-          >
-            <span className="text-sm">{t.settings.cards[c]}</span>
-            <Switch
-              checked={cards[c]}
-              onChange={(v) => settingsApi.update({ dashboardCards: { ...cards, [c]: v } })}
-              label={t.settings.cards[c]}
-            />
-          </li>
-        ))}
+
+      <div className="mt-4">
+        <p className="text-sm font-medium">Density</p>
+        <Segmented
+          label={t.settings.density}
+          value={layout.density}
+          onChange={(v) =>
+            settingsApi.update({
+              dashboardLayout: { ...layout, density: v as Density },
+            })
+          }
+          options={[
+            { value: "comfortable", label: t.settings.densityComfortable },
+            { value: "compact", label: t.settings.densityCompact },
+          ]}
+        />
+      </div>
+
+      <ul className="mt-6 space-y-1">
+        {DASHBOARD_CARDS.map((c) => {
+          const visible = cards[c];
+          const pos = layout.cardOrder.indexOf(c);
+          const shown = pos >= 0;
+          return (
+            <li
+              key={c}
+              className="flex items-center justify-between gap-4 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/20"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-sm">{t.settings.cards[c]}</span>
+                <Switch
+                  checked={visible}
+                  onChange={(v) => settingsApi.update({ dashboardCards: { ...cards, [c]: v } })}
+                  label={t.settings.cards[c]}
+                />
+                {shown && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => pos > 0 && move(pos, pos - 1)}
+                      disabled={pos <= 0}
+                      aria-label={`Move ${t.settings.cards[c]} up`}
+                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      <ArrowUp className="size-3.5" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => pos < layout.cardOrder.length - 1 && move(pos, pos + 1)}
+                      disabled={pos >= layout.cardOrder.length - 1}
+                      aria-label={`Move ${t.settings.cards[c]} down`}
+                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent/40 disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      <ArrowDown className="size-3.5" aria-hidden />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </fieldset>
   );

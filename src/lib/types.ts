@@ -146,6 +146,23 @@ export interface Note extends BaseRecord {
 export type DashboardCard =
   "priorities" | "progress" | "deadlines" | "habits" | "focus" | "level" | "achievements";
 
+export type Density = "comfortable" | "compact";
+
+/** Remembered arrangement of the dashboard: which visible cards and their order, plus density. */
+export interface DashboardLayout {
+  cardOrder: DashboardCard[];
+  density: Density;
+}
+
+/** Per-section remembered preferences (additive optional; defaulted on read). */
+export interface SectionPrefs {
+  tasks?: {
+    view: TaskBucket;
+    mode: "list" | "board";
+    sort: TaskSort;
+  };
+}
+
 /** The task-list buckets a view can be built on. */
 export type TaskBucket = "today" | "upcoming" | "overdue" | "completed" | "inbox";
 
@@ -223,6 +240,10 @@ export interface Settings {
   dayStartHour: 0 | 4;
   weekStartsOn: number; // 0=Sun..6=Sat
   dashboardCards: Record<DashboardCard, boolean>;
+  /** Additive optional: remembered dashboard card order + density. Defaults computed on read. */
+  dashboardLayout?: DashboardLayout | undefined;
+  /** Additive optional: per-section remembered preferences. Defaults computed on read. */
+  sectionPrefs?: SectionPrefs | undefined;
   dailyFocusTargetMinutes: number;
   digest?: DigestPrefs | undefined;
   /** Remote-sync configuration. Additive optional field: absent means sync is off. */
