@@ -51,8 +51,3 @@ export const NAV: NavItem[] = [
   { key: "insights", to: "/insights", icon: BarChart3 },
   { key: "settings", to: "/settings", icon: Settings },
 ];
-
-/** عناصر الشريط الأساسي في شريط الجوال الأسفل (تظهر أولًا، يتمركز عند الإخفاء). */
-export const MOBILE_PRIMARY: NavKey[] = ["dashboard", "plan", "tasks", "focus", "habits"];
-/** عناصر قائمة "المزيد" في شريط الجوال (تظهر دائمًا ضمن "المزيد"). */
-export const MOBILE_MORE: NavKey[] = ["calendar", "notes", "rewards", "insights", "settings"];

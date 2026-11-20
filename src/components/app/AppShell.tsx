@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { NAV, type NavKey, MOBILE_PRIMARY, MOBILE_MORE } from "./nav";
+import { NAV, type NavKey } from "./nav";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -59,6 +59,8 @@ const NAV_GROUPS: { label: "plan" | "do" | "keep" | "grow"; keys: NavKey[] }[] =
   { label: "keep", keys: ["notes"] },
   { label: "grow", keys: ["rewards", "insights"] },
 ];
+const MOBILE_PRIMARY: NavKey[] = ["dashboard", "plan", "tasks", "focus", "habits"];
+const MOBILE_MORE: NavKey[] = ["calendar", "notes", "rewards", "insights", "settings"];
 const navOf = (key: NavKey) => NAV.find((n) => n.key === key)!;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -80,11 +82,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const defaultRoute = settings.defaultRoute ?? "/";
   /** Ensures the one-time boot redirect to the default landing page runs once. */
   const redirected = useRef(false);
-  const visiblePrimary = MOBILE_PRIMARY.filter((key) => navVisibility[key] !== false);
-  const hiddenPrimary = MOBILE_PRIMARY.filter((key) => navVisibility[key] === false);
-  const showMore = hiddenPrimary.length > 0;
-  const moreSheetItems = [...hiddenPrimary, ...MOBILE_MORE];
-  const moreActive = moreSheetItems.some((k) => pathname === navOf(k).to);
+  const visibleMore = MOBILE_MORE.filter((key) => navVisibility[key] !== false);
+  const moreActive = visibleMore.some((k) => pathname === navOf(k).to);
   const settingsItem = navOf("settings");
   const seenUnlocks = useRef<Set<string> | null>(null);
 
@@ -353,8 +352,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label={t.nav.mobileNav}
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-sidebar/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
-        <div className="flex w-full items-center justify-center gap-1 px-2">
-          {visiblePrimary.map((key) => {
+        <div className="grid grid-cols-6">
+          {MOBILE_PRIMARY.filter((key) => navVisibility[key] !== false).map((key) => {
             const { to, icon: Icon } = navOf(key);
             return (
               <Link
@@ -369,18 +368,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
-          {showMore && (
-            <button
-              type="button"
-              onClick={() => setMoreOpen(true)}
-              aria-haspopup="dialog"
-              aria-expanded={moreOpen}
-              className={cn("tab-link", (moreOpen || moreActive) && "tab-link-active")}
-            >
-              <Ellipsis className="size-5" aria-hidden />
-              <span className="w-full truncate text-center">{t.nav.more}</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setMoreOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={moreOpen}
+            className={cn("tab-link", (moreOpen || moreActive) && "tab-link-active")}
+          >
+            <Ellipsis className="size-5" aria-hidden />
+            <span className="w-full truncate text-center">{t.nav.more}</span>
+          </button>
         </div>
       </nav>
 
@@ -436,7 +433,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SheetTitle>
           </SheetHeader>
           <nav aria-label={t.nav.more} className="flex flex-col gap-0.5">
-            {moreSheetItems.map((key) => {
+            {visibleMore.map((key) => {
               const { to, icon: Icon } = navOf(key);
               return (
                 <Link

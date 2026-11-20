@@ -650,7 +650,6 @@ const en = {
     navVisibility: "Visible navigation items",
     navVisibilityHint:
       "Hide modules you don't use from the sidebar and mobile bar. Settings always stays reachable.",
-    navVisibilityMin: "At least two items must stay visible in the bottom bar.",
     reducedMotion: "Reduce motion",
     workspaces: {
       title: "Workspaces",
@@ -1392,7 +1391,6 @@ const ar: Dict = {
     navVisibility: "عناصر التنقل الظاهرة",
     navVisibilityHint:
       "أخفِ الوحدات التي لا تستخدمها من الشريط الجانبي وشريط الجوال. الإعدادات تظل قابلة للوصول دائمًا.",
-    navVisibilityMin: "لا بد من بقاء عنصرين على الأقل ظاهرين في شريط الأسفل.",
     reducedMotion: "تقليل الحركة",
     workspaces: {
       title: "مساحات العمل",
