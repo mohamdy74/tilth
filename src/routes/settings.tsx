@@ -13,7 +13,6 @@ import {
   Keyboard,
   Monitor,
   Moon,
-  MoreVertical,
   RefreshCw,
   Smartphone,
   Sprout,
@@ -662,7 +661,16 @@ function NavVisibilitySection() {
                 onDragEnd={() => setDraggedIndex(null)}
                 draggable
               >
-                <MoreVertical className="size-8 text-muted-foreground" aria-hidden />
+                <div className="flex flex-col gap-1">
+                  <div className="flex gap-1">
+                    <span className="size-1.5 rounded-full bg-muted-foreground" aria-hidden />
+                    <span className="size-1.5 rounded-full bg-muted-foreground" aria-hidden />
+                  </div>
+                  <div className="flex gap-1">
+                    <span className="size-1.5 rounded-full bg-muted-foreground" aria-hidden />
+                    <span className="size-1.5 rounded-full bg-muted-foreground" aria-hidden />
+                  </div>
+                </div>
               </div>
               <span className="text-sm truncate flex-1">{t.nav[key as keyof typeof t.nav]}</span>
               <Switch
