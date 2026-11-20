@@ -14,6 +14,7 @@ typed i18n dictionary, oklch design tokens with a swappable `--accent-hue`, self
 @fontsource fonts, PWA via vite-plugin-pwa + hand-regenerated `sw.js`.
 
 **Strengths (evidence):**
+
 - Real pages for every nav section; route-level code splitting works — measured build:
   `index-*.js` 492 kB, per-route chunks 5–25 kB, `insights-*.js` 402 kB isolates all of
   recharts (515 kB raw) off the cold path.
@@ -27,6 +28,7 @@ typed i18n dictionary, oklch design tokens with a swappable `--accent-hue`, self
   hard refreshes offline, PNG-only manifest icons.
 
 **Weaknesses / opportunities found in this pass:**
+
 1. [LOW, fixed] Legacy `.woff` font fallbacks (~135 kB across 3 files) were precached by
    the service worker even though every SW-capable browser supports woff2 — same
    dead-weight class as the documented DOWNFORCE icon lesson.
@@ -42,15 +44,15 @@ typed i18n dictionary, oklch design tokens with a swappable `--accent-hue`, self
 
 ## 2. Competitive gap analysis (principle-level)
 
-| Product | What it does best | Transferable principle | Fits Tilth? |
-|---|---|---|---|
-| Todoist | Natural-language quick add, multiple views | Tilth already has quick-add parsing (`quickAdd.ts`) + list/kanban views | Covered |
-| Things 3 | Frictionless capture; Today as the default surface | Tilth's `/` dashboard + quiet digest already do this | Covered |
-| Linear | Keyboard-first everything, instant palette, triage flow | ⌘K palette + content search exist; triage of inbox could be a one-keystroke flow | Partial — polish, not new feature |
-| TickTick | Habits + pomodoro + calendar in one | All present; integration depth is the differentiator | Covered |
-| Sunsama | Guided daily planning ritual | The morning/evening digest is the local-first equivalent | Covered |
-| Motion | Auto-scheduling | **Rejected**: needs sync/backend; violates local-first constraint | No |
-| Notion | Linked docs ↔ tasks | Notes already link to tasks (`linkedTaskId`) | Covered |
+| Product  | What it does best                                       | Transferable principle                                                           | Fits Tilth?                       |
+| -------- | ------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------- |
+| Todoist  | Natural-language quick add, multiple views              | Tilth already has quick-add parsing (`quickAdd.ts`) + list/kanban views          | Covered                           |
+| Things 3 | Frictionless capture; Today as the default surface      | Tilth's `/` dashboard + quiet digest already do this                             | Covered                           |
+| Linear   | Keyboard-first everything, instant palette, triage flow | ⌘K palette + content search exist; triage of inbox could be a one-keystroke flow | Partial — polish, not new feature |
+| TickTick | Habits + pomodoro + calendar in one                     | All present; integration depth is the differentiator                             | Covered                           |
+| Sunsama  | Guided daily planning ritual                            | The morning/evening digest is the local-first equivalent                         | Covered                           |
+| Motion   | Auto-scheduling                                         | **Rejected**: needs sync/backend; violates local-first constraint                | No                                |
+| Notion   | Linked docs ↔ tasks                                     | Notes already link to tasks (`linkedTaskId`)                                     | Covered                           |
 
 Net: the highest-value gaps are **not missing features** — they are measurement
 (bundle budget, CWV, axe in CI) and micro-polish of the capture→triage loop. Adding

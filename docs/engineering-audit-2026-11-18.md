@@ -6,16 +6,16 @@ Baseline commit: `5de623f` (`main`). Implementation plan: `docs/superpowers/plan
 
 Fresh commands were run before editing; previous reports were not treated as current evidence.
 
-| Check | Original result |
-|---|---|
-| `npm run typecheck` | PASS |
-| `npm test` | PASS — 37 files, 415 tests |
-| `npm run lint` | FAIL — 103 CRLF/Prettier errors, 8 warnings |
-| `npm run build` | PASS, including final SW regeneration |
-| `npm ls --depth=0` | FAIL — installed Lovable config 2.26.5 disagreed with manifest 2.27.1 |
-| Baseline client CSS | 128.58 kB raw / 29.86 kB gzip |
-| Baseline main JS | 378.99 kB raw / 120.39 kB gzip |
-| Baseline lazy insights JS | 410.80 kB raw / 108.81 kB gzip |
+| Check                     | Original result                                                       |
+| ------------------------- | --------------------------------------------------------------------- |
+| `npm run typecheck`       | PASS                                                                  |
+| `npm test`                | PASS — 37 files, 415 tests                                            |
+| `npm run lint`            | FAIL — 103 CRLF/Prettier errors, 8 warnings                           |
+| `npm run build`           | PASS, including final SW regeneration                                 |
+| `npm ls --depth=0`        | FAIL — installed Lovable config 2.26.5 disagreed with manifest 2.27.1 |
+| Baseline client CSS       | 128.58 kB raw / 29.86 kB gzip                                         |
+| Baseline main JS          | 378.99 kB raw / 120.39 kB gzip                                        |
+| Baseline lazy insights JS | 410.80 kB raw / 108.81 kB gzip                                        |
 
 Architecture verified from source: React 19, TanStack Router/Start SPA with route splitting, zustand over per-key IndexedDB envelopes, pure domain engines, BroadcastChannel merging, encrypted sync transport, Arabic-first i18n/RTL, Tailwind tokens, and a postbuild-regenerated service worker. No schemas, migrations, storage formats, generated route files, or storage/sync APIs were changed.
 
@@ -74,16 +74,16 @@ Three files had CRLF-only Prettier failures, and CI explicitly used `continue-on
 
 ## D. Measurable results
 
-| Metric | Before | After | Change |
-|---|---:|---:|---:|
-| Client CSS | 128.58 kB | 87.51 kB | **−41.07 kB (−31.9%)** |
-| Client CSS gzip | 29.86 kB | 23.97 kB | **−5.89 kB (−19.7%)** |
-| Shared `button` JS chunk | 134.21 kB | 130.89 kB | −3.32 kB |
-| Shared `button` JS gzip | 44.63 kB | 43.44 kB | −1.19 kB |
-| Main JS | 378.99 kB | 379.00 kB | +0.01 kB; gzip unchanged at 120.39 kB |
-| Lazy insights JS | 410.80 kB | 410.80 kB | Unchanged; gzip 108.81 kB |
-| Tests | 37 files / 415 passed | 37 files / 415 passed | No tests removed or weakened |
-| Lint | 103 errors / 8 warnings | **0 errors / 1 warning** | CI now blocks errors |
+| Metric                   |                  Before |                    After |                                Change |
+| ------------------------ | ----------------------: | -----------------------: | ------------------------------------: |
+| Client CSS               |               128.58 kB |                 87.51 kB |                **−41.07 kB (−31.9%)** |
+| Client CSS gzip          |                29.86 kB |                 23.97 kB |                 **−5.89 kB (−19.7%)** |
+| Shared `button` JS chunk |               134.21 kB |                130.89 kB |                              −3.32 kB |
+| Shared `button` JS gzip  |                44.63 kB |                 43.44 kB |                              −1.19 kB |
+| Main JS                  |               378.99 kB |                379.00 kB | +0.01 kB; gzip unchanged at 120.39 kB |
+| Lazy insights JS         |               410.80 kB |                410.80 kB |             Unchanged; gzip 108.81 kB |
+| Tests                    |   37 files / 415 passed |    37 files / 415 passed |          No tests removed or weakened |
+| Lint                     | 103 errors / 8 warnings | **0 errors / 1 warning** |                  CI now blocks errors |
 
 Final verification evidence:
 

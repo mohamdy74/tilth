@@ -1,4 +1,5 @@
 <!-- LOVABLE:BEGIN -->
+
 > [!IMPORTANT]
 > This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
 > published git history — force pushing, or rebasing/amending/squashing commits
@@ -27,6 +28,7 @@ use the editor.
   `LOVABLE_API_KEY`. When Lovable does not provide one, users can bring their
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
+
 <!-- LOVABLE:END -->
 
 ## Architecture (Tilth)
@@ -223,7 +225,7 @@ use the editor.
   open tasks due today, overdue, habits due (via `isScheduledOn`), and
   `firstTask` (priority, then dueDate, then createdAt). `eveningDigest` =
   `completedToday` (done tasks grouped by `toLocalDay(completedAt,
-  dayStartHour, timeZone)` — the same convention as the insights engine),
+dayStartHour, timeZone)` — the same convention as the insights engine),
   `habitsDone` (scheduled-today habits with a done log), `focusMinutes`
   (planned minutes of completed non-break sessions stored today),
   `stillOpen` (open due ≤ today) and `tomorrowOpen` (due tomorrow).
@@ -431,7 +433,6 @@ use the editor.
 
 ## SSR constraints (Cloudflare Workers / workerd)
 
-
 - The production runtime is workerd (Lovable hosting). Node dev/build/tests will
   happily accept code that workerd rejects. Never call `crypto.randomUUID()`,
   `Math.random()`, `setTimeout`, or async I/O at module top level in any file
@@ -467,7 +468,7 @@ use the editor.
 - Installable PWA: vite-plugin-pwa (generateSW) precaches the app shell and all
   self-hosted fonts/assets. Offline works only in the published app — dev,
   localhost and Lovable preview hosts never register a service worker
-(see `shouldRegisterPwa` in `src/lib/pwa.ts`).
+  (see `shouldRegisterPwa` in `src/lib/pwa.ts`).
 - SPA mode: `tanstackStart({ spa: { enabled: true } })` — the build
   prerenders the root route to `/_shell.html` and rewrites 404 navigations to it,
   so a hard refresh offline works on every route. SSR is off at runtime, but the

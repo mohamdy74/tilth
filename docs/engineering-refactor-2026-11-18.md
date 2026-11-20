@@ -71,11 +71,11 @@ The test suite failed on the missing module before implementation and passed aft
 
 Identical deterministic input: 3,000 paired records with nested values, 30 merge iterations per measurement.
 
-| Condition | Mean time per merge |
-|---|---:|
-| Baseline, idle runs | 34.05 ms, 33.44 ms |
+| Condition             |       Mean time per merge |
+| --------------------- | ------------------------: |
+| Baseline, idle runs   |        34.05 ms, 33.44 ms |
 | Refactored, idle runs | 8.98 ms, 9.04 ms, 9.11 ms |
-| Median comparison | **33.75 → 9.04 ms** |
+| Median comparison     |       **33.75 → 9.04 ms** |
 
 Result: **73.2% less elapsed time**, approximately **3.7× throughput** for this input. An earlier baseline run during a concurrent production build (41.86 ms) was excluded from the idle comparison rather than used to inflate the result. This is a pure Node engine benchmark, not a measured UI responsiveness claim.
 

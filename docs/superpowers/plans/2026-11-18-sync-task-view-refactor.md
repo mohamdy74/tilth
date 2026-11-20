@@ -31,55 +31,60 @@
 ### Task 1: Avoid unnecessary canonical JSON in sync merges
 
 **Files:**
+
 - Modify: `src/lib/sync.ts:92-138`.
 - Test: `src/lib/sync.test.ts`.
 
 **Interfaces:**
+
 - Consumes: `mergeSync(local, remote, at)` and `stableStringify`.
 - Produces: identical `MergeResult` values and conflict metadata.
 
 - [x] **Step 1: Add the missing same-timestamp deletion branch test**
-Add a test where one record is deleted and the other is live with the same `updatedAt`; assert the tombstone and `delete-vs-edit` conflict win. Run `npx vitest run src/lib/sync.test.ts`; expect all existing and new tests to pass before refactoring.
+      Add a test where one record is deleted and the other is live with the same `updatedAt`; assert the tombstone and `delete-vs-edit` conflict win. Run `npx vitest run src/lib/sync.test.ts`; expect all existing and new tests to pass before refactoring.
 
 - [x] **Step 2: Reorder the existing branches**
-Handle one-sided records, then deletion mismatch, then different timestamps. Only when timestamps and deletion status match, compute `ls`/`rs`, return identical records, or apply the existing canonical tie-break. Keep the conflict object shape and output ordering unchanged.
+      Handle one-sided records, then deletion mismatch, then different timestamps. Only when timestamps and deletion status match, compute `ls`/`rs`, return identical records, or apply the existing canonical tie-break. Keep the conflict object shape and output ordering unchanged.
 
 - [x] **Step 3: Verify behavior and measure**
-Run `npx vitest run src/lib/sync.test.ts`, `npm run typecheck`, and the same temporary benchmark three times. Require identical 3,000 merged records and 300 conflicts; record median/range without claiming a UI responsiveness improvement.
+      Run `npx vitest run src/lib/sync.test.ts`, `npm run typecheck`, and the same temporary benchmark three times. Require identical 3,000 merged records and 300 conflicts; record median/range without claiming a UI responsiveness improvement.
 
 ### Task 2: Extract the task-view derivation
 
 **Files:**
+
 - Create: `src/lib/taskViews.ts`.
 - Test: `src/lib/taskViews.test.ts`.
 - Modify: `src/routes/tasks.tsx:31-34,54-57,167-206`.
 
 **Interfaces:**
+
 - Consumes: live `Task[]`, `today`, `priority`, `tag`, `search`, and `sort`; existing `sortTasks`.
 - Produces: `buildTaskViews(tasks, options): Record<TaskBucket, Task[]>` with the exact current filtering, bucketing, and sorting behavior.
 
 - [x] **Step 1: Write failing pure tests**
-Pin all five buckets, completed-overdue precedence, priority/tag/search filters, completed ordering, and input immutability. Run `npx vitest run src/lib/taskViews.test.ts`; expect failure because `taskViews.ts` does not exist.
+      Pin all five buckets, completed-overdue precedence, priority/tag/search filters, completed ordering, and input immutability. Run `npx vitest run src/lib/taskViews.test.ts`; expect failure because `taskViews.ts` does not exist.
 
 - [x] **Step 2: Implement `buildTaskViews`**
-Move the existing filter predicate, bucket loop, and sort decisions into the pure module. Do not change the search semantics or introduce a second task type union.
+      Move the existing filter predicate, bucket loop, and sort decisions into the pure module. Do not change the search semantics or introduce a second task type union.
 
 - [x] **Step 3: Use it from the route**
-Replace `ViewKey` with `TaskBucket`, pass `deferredSearch` to `buildTaskViews`, and delete the inline derivation. Keep `live`, `allTags`, `visible`, saved views, and kanban logic in their current form.
+      Replace `ViewKey` with `TaskBucket`, pass `deferredSearch` to `buildTaskViews`, and delete the inline derivation. Keep `live`, `allTags`, `visible`, saved views, and kanban logic in their current form.
 
 - [x] **Step 4: Verify the increment**
-Run `npx vitest run src/lib/taskViews.test.ts src/lib/taskSort.test.ts src/test/app-routing.test.tsx`, `npm run typecheck`, and `npm run lint`. Smoke-render `/tasks` in Arabic and English; verify bucket counts, search, and one filter.
+      Run `npx vitest run src/lib/taskViews.test.ts src/lib/taskSort.test.ts src/test/app-routing.test.tsx`, `npm run typecheck`, and `npm run lint`. Smoke-render `/tasks` in Arabic and English; verify bucket counts, search, and one filter.
 
 ### Task 3: Final verification and report
 
 **Files:**
+
 - Create: `docs/engineering-refactor-2026-11-18.md`.
 
 - [x] **Step 1: Review the final diff**
-Require only the scoped files plus the plan/report; no generated files, dependencies, schemas, or unrelated UI changes.
+      Require only the scoped files plus the plan/report; no generated files, dependencies, schemas, or unrelated UI changes.
 
 - [x] **Step 2: Run the complete gates**
-Run `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`. Expect 38 test files and at least 416 tests (the exact added count is recorded after implementation). Probe `/`, `/settings`, `/tasks`, `/sw.js`, `/manifest.webmanifest`, and `/_shell.html` under workerd; require 200.
+      Run `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`. Expect 38 test files and at least 416 tests (the exact added count is recorded after implementation). Probe `/`, `/settings`, `/tasks`, `/sw.js`, `/manifest.webmanifest`, and `/_shell.html` under workerd; require 200.
 
 - [x] **Step 3: Document results**
-Record the before/after sync benchmark under comparable idle conditions, exact test/build results, behavior preserved, rejected speculative changes, and remaining measurement debt. Do not claim a bundle or rendering improvement without an observed artifact/profile change.
+      Record the before/after sync benchmark under comparable idle conditions, exact test/build results, behavior preserved, rejected speculative changes, and remaining measurement debt. Do not claim a bundle or rendering improvement without an observed artifact/profile change.
