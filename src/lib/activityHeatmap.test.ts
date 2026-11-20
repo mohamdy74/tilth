@@ -5,6 +5,9 @@ import {
   HEAT_DAYS,
   HEAT_WEEKS,
   monthBlocks,
+  monthOptions,
+  nextFocusDay,
+  tier,
 } from "./activityHeatmap";
 import type { FocusSession, HabitLog, LocalDay, Priority, Task, TaskStatus } from "./types";
 
@@ -133,108 +136,111 @@ describe("activityHeatmap", () => {
   });
 });
 
-describe("monthBlocks layout (literal pixel assertions)", () => {
-  const emptyHeatmap = activityHeatmap([], [], [], [], {
-    today: "2026-12-15",
-    weekStartsOn: 6,
-    dayStartHour: 0,
-    timeZone: "UTC",
-  });
+describe("T1: pure calendar month grid", () => {
+  const cases = [
+    { month: "2026-11-01", start: 6, offset: 1, rows: 5, height: 164, days: 30 },
+    { month: "2026-12-01", start: 6, offset: 3, rows: 5, height: 164, days: 31 },
+    { month: "2027-01-01", start: 6, offset: 6, rows: 6, height: 198, days: 31 },
+    { month: "2027-02-01", start: 6, offset: 2, rows: 5, height: 164, days: 28 },
+    { month: "2028-02-01", start: 6, offset: 3, rows: 5, height: 164, days: 29 },
+    { month: "2027-02-01", start: 1, offset: 0, rows: 4, height: 130, days: 28 },
+  ] as const;
 
-  it("weekStartsOn=Saturday: Dec 2026 offset 3 cols 5 width 72", () => {
-    const blocks = monthBlocks(emptyHeatmap, "2026-12-15", 6);
-    const dec = blocks.find((b) => b.year === 2026 && b.month === 12)!;
-    expect(dec.offset).toBe(3);
-    expect(dec.cols).toBe(5);
-    expect(dec.cols * 12 + (dec.cols - 1) * 3).toBe(72);
-  });
-
-  it("weekStartsOn=Saturday: Jan 2027 offset 6 cols 6 width 87", () => {
-    const hm = activityHeatmap([], [], [], [], {
-      today: "2027-01-15",
-      weekStartsOn: 6,
-      dayStartHour: 0,
-      timeZone: "UTC",
+  for (const testCase of cases) {
+    it(`${testCase.month}, weekStartsOn=${testCase.start}: exact calendar geometry`, () => {
+      const block = monthBlocks(new Map(), testCase.month, testCase.month, testCase.start);
+      expect(block.offset).toBe(testCase.offset);
+      expect(block.rows).toBe(testCase.rows);
+      expect(block.rows * 28 + (block.rows - 1) * 6).toBe(testCase.height);
+      expect(7 * 28 + 6 * 6).toBe(232);
+      expect(block.cells).toHaveLength(testCase.days);
+      expect(block.cells[0]).toMatchObject({ row: 1, col: testCase.offset + 1 });
+      const positions = block.cells.map((cell) => `${cell.row},${cell.col}`);
+      expect(new Set(positions).size).toBe(testCase.days);
     });
-    const blocks = monthBlocks(hm, "2027-01-15", 6);
-    const jan = blocks.find((b) => b.year === 2027 && b.month === 1)!;
-    expect(jan.offset).toBe(6);
-    expect(jan.cols).toBe(6);
-    expect(jan.cols * 12 + (jan.cols - 1) * 3).toBe(87);
+  }
+
+  it("Nov 2026 last row contains exactly days 28, 29 and 30", () => {
+    const block = monthBlocks(new Map(), "2026-11-01", "2026-11-19", 6);
+    expect(block.cells.filter((cell) => cell.row === 5).map((cell) => cell.day)).toEqual([
+      "2026-11-28",
+      "2026-11-29",
+      "2026-11-30",
+    ]);
+  });
+});
+
+describe("T2: three activity tiers", () => {
+  it("maps 0, light and solid counts at the literal boundaries", () => {
+    expect([tier(0), tier(1), tier(5), tier(6), tier(10), tier(25)]).toEqual([0, 1, 1, 2, 2, 2]);
+  });
+});
+
+describe("T3: continuous month options", () => {
+  const counts = (...days: LocalDay[]) => new Map(days.map((day) => [day, 1]));
+
+  it("returns 12 months from 2026-11 through 2025-12", () => {
+    expect(monthOptions("2026-11-19", counts("2025-12-14"))).toEqual([
+      "2026-11",
+      "2026-10",
+      "2026-09",
+      "2026-08",
+      "2026-07",
+      "2026-06",
+      "2026-05",
+      "2026-04",
+      "2026-03",
+      "2026-02",
+      "2026-01",
+      "2025-12",
+    ]);
   });
 
-  it("weekStartsOn=Saturday: Feb 2027 offset 2 cols 5 width 72", () => {
-    const hm = activityHeatmap([], [], [], [], {
-      today: "2027-02-15",
-      weekStartsOn: 6,
-      dayStartHour: 0,
-      timeZone: "UTC",
-    });
-    const blocks = monthBlocks(hm, "2027-02-15", 6);
-    const feb = blocks.find((b) => b.year === 2027 && b.month === 2)!;
-    expect(feb.offset).toBe(2);
-    expect(feb.cols).toBe(5);
-    expect(feb.cols * 12 + (feb.cols - 1) * 3).toBe(72);
+  it("includes the new current month automatically", () => {
+    const options = monthOptions("2026-12-01", counts("2025-12-14"));
+    expect(options).toHaveLength(13);
+    expect(options[0]).toBe("2026-12");
   });
 
-  it("weekStartsOn=Monday: Feb 2027 offset 0 cols 4 width 57", () => {
-    const hm = activityHeatmap([], [], [], [], {
-      today: "2027-02-15",
-      weekStartsOn: 1,
-      dayStartHour: 0,
-      timeZone: "UTC",
-    });
-    const blocks = monthBlocks(hm, "2027-02-15", 1);
-    const feb = blocks.find((b) => b.year === 2027 && b.month === 2)!;
-    expect(feb.offset).toBe(0);
-    expect(feb.cols).toBe(4);
-    expect(feb.cols * 12 + (feb.cols - 1) * 3).toBe(57);
+  it("returns only the current month for same-month or empty data", () => {
+    expect(monthOptions("2026-11-19", counts("2026-11-02"))).toEqual(["2026-11"]);
+    expect(monthOptions("2026-11-19", new Map())).toEqual(["2026-11"]);
   });
 
-  it("grid height is always 102px", () => {
-    const blocks = monthBlocks(emptyHeatmap, "2026-12-15", 6);
-    for (const b of blocks) {
-      expect(b.cells.length).toBeGreaterThan(0);
-      // every cell row is 1..7, col is 1..cols
-      for (const c of b.cells) {
-        expect(c.row).toBeGreaterThanOrEqual(1);
-        expect(c.row).toBeLessThanOrEqual(7);
-        expect(c.col).toBeGreaterThanOrEqual(1);
-        expect(c.col).toBeLessThanOrEqual(b.cols);
-      }
-    }
+  it("crosses year boundaries without day-31 overflow", () => {
+    expect(monthOptions("2026-03-01", counts("2026-01-31"))).toEqual([
+      "2026-03",
+      "2026-02",
+      "2026-01",
+    ]);
+  });
+});
+
+describe("T5: calendar keyboard navigation", () => {
+  it("clamps at the first day and a previous month's last day", () => {
+    expect(nextFocusDay("2026-10-01", "ArrowLeft", "2026-11-19", 31)).toBe("2026-10-01");
+    expect(nextFocusDay("2026-10-01", "ArrowUp", "2026-11-19", 31)).toBe("2026-10-01");
+    expect(nextFocusDay("2026-10-31", "ArrowRight", "2026-11-19", 31)).toBe("2026-10-31");
+    expect(nextFocusDay("2026-10-31", "ArrowDown", "2026-11-19", 31)).toBe("2026-10-31");
+    expect(nextFocusDay("2026-10-15", "End", "2026-11-19", 31)).toBe("2026-10-31");
   });
 
-  it("cells per month == days in month (Feb 2028 = 29); day 1 row == offset+1", () => {
-    const hm = activityHeatmap([], [], [], [], {
-      today: "2028-02-15",
-      weekStartsOn: 6,
-      dayStartHour: 0,
-      timeZone: "UTC",
-    });
-    const blocks = monthBlocks(hm, "2028-02-15", 6);
-    const feb = blocks.find((b) => b.year === 2028 && b.month === 2)!;
-    expect(feb.cells.length).toBe(29);
-    const day1 = feb.cells.find((c) => c.day === "2028-02-01")!;
-    expect(day1.row).toBe(feb.offset + 1);
-    expect(day1.col).toBe(1);
+  it("clamps the current month at the last non-future day", () => {
+    expect(nextFocusDay("2026-11-19", "ArrowRight", "2026-11-19", 30)).toBe("2026-11-19");
+    expect(nextFocusDay("2026-11-18", "ArrowDown", "2026-11-19", 30)).toBe("2026-11-19");
+    expect(nextFocusDay("2026-11-01", "End", "2026-11-19", 30)).toBe("2026-11-19");
   });
 
-  it("Feb 2028 span yields consecutive UNIQUE day keys (no dupes/gaps)", () => {
-    const hm = activityHeatmap([], [], [], [], {
-      today: "2028-02-15",
-      weekStartsOn: 6,
-      dayStartHour: 0,
-      timeZone: "UTC",
-    });
-    const blocks = monthBlocks(hm, "2028-02-15", 6);
-    const feb = blocks.find((b) => b.year === 2028 && b.month === 2)!;
-    const days = feb.cells.map((c) => c.day).sort();
-    const expected = Array.from(
-      { length: 29 },
-      (_, i) => "2028-02-" + String(i + 1).padStart(2, "0"),
-    );
-    expect(days).toEqual(expected);
-    expect(new Set(days).size).toBe(days.length);
+  it("moves by one day horizontally and seven days vertically", () => {
+    expect(nextFocusDay("2026-11-10", "ArrowLeft", "2026-11-19", 30)).toBe("2026-11-09");
+    expect(nextFocusDay("2026-11-10", "ArrowRight", "2026-11-19", 30)).toBe("2026-11-11");
+    expect(nextFocusDay("2026-11-10", "ArrowUp", "2026-11-19", 30)).toBe("2026-11-03");
+    expect(nextFocusDay("2026-11-10", "ArrowDown", "2026-11-19", 30)).toBe("2026-11-17");
+    expect(nextFocusDay("2026-11-10", "Home", "2026-11-19", 30)).toBe("2026-11-01");
+  });
+
+  it("ignores unrelated keys and Shift variants", () => {
+    expect(nextFocusDay("2026-11-10", "PageDown", "2026-11-19", 30)).toBeNull();
+    expect(nextFocusDay("2026-11-10", "Shift+ArrowLeft", "2026-11-19", 30)).toBeNull();
   });
 });

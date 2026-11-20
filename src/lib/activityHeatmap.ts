@@ -43,6 +43,14 @@ export function activityLevel(count: number): number {
   return 4;
 }
 
+export const HEAT_LIGHT_MAX = 5;
+
+/** Map a raw activity count to the calendar's three color tiers. */
+export function tier(count: number): number {
+  if (count <= 0) return 0;
+  return count <= HEAT_LIGHT_MAX ? 1 : 2;
+}
+
 /** Aggregate all activity into a per-day count map. Covers ALL history
  * (no 364-day slice) — callers decide the window. */
 export function activityCounts(
@@ -107,62 +115,96 @@ export function activityHeatmap(
   return cells;
 }
 
-/** One cell inside a month block, with explicit grid placement. */
+/** One cell inside a month block, with explicit calendar placement. */
 export interface MonthCell {
   day: LocalDay;
-  row: number; // 1..7
-  col: number; // 1..cols
+  row: number;
+  col: number;
   count: number;
-  level: number;
+  tier: number;
   isPast: boolean; // day is on or before today
 }
 
-/** One month block of the monthly heatmap grid. */
+/** One calendar month: seven weekday columns and as many week rows as needed. */
 export interface MonthBlock {
   year: number;
   month: number; // 1..12
-  offset: number; // leading empty cells before day 1 (0..6)
-  cols: number; // number of columns spanned (1..7)
+  offset: number; // leading empty slots before day 1 (0..6)
+  rows: number;
   cells: MonthCell[];
 }
 
-/**
- * Slice the 52-week heatmap into 12 calendar month blocks ending in today's
- * month, oldest first. Reuses the existing per-day counting (activityHeatmap
- * output) — no duplication of the counting logic. Pure: today/weekStartsOn
- * are passed in.
- */
+/** Build one month directly from the all-history per-day counts. */
 export function monthBlocks(
-  heatmap: ActivityCell[],
+  counts: Map<LocalDay, number>,
+  month: LocalDay,
   today: LocalDay,
   weekStartsOn: number,
-): MonthBlock[] {
-  const byDay = new Map<LocalDay, ActivityCell>();
-  for (const cell of heatmap) byDay.set(cell.day, cell);
-
-  const blocks: MonthBlock[] = [];
-  // Build oldest-first: start 11 months before today's month.
-  let cursor = addMonths(startOfMonth(today), -11);
-  for (let i = 0; i < 12; i++) {
-    const firstDay = cursor;
-    const year = Number(firstDay.slice(0, 4));
-    const monthNum = Number(firstDay.slice(5, 7));
-    const weekdayIndexOfFirst = weekdayOf(firstDay);
-    const offset = (weekdayIndexOfFirst - weekStartsOn + 7) % 7;
-    const days = daysInMonth(firstDay);
-    const cols = Math.ceil((offset + days) / 7);
-    const cells: MonthCell[] = [];
-    for (let d = 1; d <= days; d++) {
-      const dayKey = addDays(firstDay, d - 1);
-      const cell = byDay.get(dayKey);
-      const count = cell?.count ?? 0;
-      const level = cell?.level ?? 0;
-      const row = ((offset + d - 1) % 7) + 1;
-      const col = Math.floor((offset + d - 1) / 7) + 1;
-      cells.push({ day: dayKey, row, col, count, level, isPast: dayKey <= today });
-    }
-    blocks.push({ year, month: monthNum, offset, cols, cells });
-    cursor = addMonths(cursor, 1);
+): MonthBlock {
+  const firstDay = startOfMonth(month);
+  const days = daysInMonth(firstDay);
+  const offset = (weekdayOf(firstDay) - weekStartsOn + 7) % 7;
+  const cells: MonthCell[] = [];
+  for (let d = 1; d <= days; d++) {
+    const day = addDays(firstDay, d - 1);
+    const count = counts.get(day) ?? 0;
+    cells.push({
+      day,
+      row: Math.floor((offset + d - 1) / 7) + 1,
+      col: ((offset + d - 1) % 7) + 1,
+      count,
+      tier: tier(count),
+      isPast: day <= today,
+    });
   }
-  return blocks;
+  return {
+    year: Number(firstDay.slice(0, 4)),
+    month: Number(firstDay.slice(5, 7)),
+    offset,
+    rows: Math.ceil((offset + days) / 7),
+    cells,
+  };
+}
+
+/** Continuous month keys from today back to the earliest activity, newest first. */
+export function monthOptions(today: LocalDay, counts: Map<LocalDay, number>): string[] {
+  const current = today.slice(0, 7);
+  let earliest = current;
+  for (const day of counts.keys()) {
+    const key = day.slice(0, 7);
+    if (key < earliest) earliest = key;
+  }
+  const options: string[] = [];
+  let cursor = startOfMonth(today);
+  while (cursor.slice(0, 7) >= earliest) {
+    options.push(cursor.slice(0, 7));
+    cursor = addMonths(cursor, -1);
+  }
+  return options;
+}
+
+/** Calendar keyboard movement, clamped inside the month and before future days. */
+export function nextFocusDay(
+  dayKey: LocalDay,
+  key: string,
+  today: LocalDay,
+  daysInMonthCount: number,
+): LocalDay | null {
+  const delta: Record<string, number> = {
+    ArrowLeft: -1,
+    ArrowRight: 1,
+    ArrowUp: -7,
+    ArrowDown: 7,
+  };
+  const last =
+    dayKey.slice(0, 7) === today.slice(0, 7)
+      ? Math.min(daysInMonthCount, Number(today.slice(8, 10)))
+      : daysInMonthCount;
+  let day: number;
+  if (key === "Home") day = 1;
+  else if (key === "End") day = last;
+  else if (key in delta) day = Number(dayKey.slice(8, 10)) + delta[key]!;
+  else return null;
+  day = Math.max(1, Math.min(last, day));
+  return dayKey.slice(0, 8) + String(day).padStart(2, "0");
 }
