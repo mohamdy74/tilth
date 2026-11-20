@@ -5,8 +5,10 @@ import {
   ArrowUp,
   BellRing,
   Check,
+  Copy,
   Database,
   Download,
+  Edit,
   FileWarning,
   Keyboard,
   Monitor,
@@ -15,11 +17,13 @@ import {
   Smartphone,
   Sprout,
   Sun,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { usePrefs, type Theme } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Segmented } from "@/components/app/Segmented";
+import { NAV } from "@/components/app/nav";
 import { Modal } from "@/components/app/Modal";
 import { DANGER_BTN, OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
 import { BackupError, parseBackup, type ParsedBackup } from "@/lib/backup";
@@ -38,8 +42,15 @@ import {
   sync,
   useStore,
   defaultDashboardLayout,
+  workspaces,
 } from "@/lib/store";
-import { COLLECTION_KEYS, type DashboardCard, type Density, type SyncSettings } from "@/lib/types";
+import {
+  COLLECTION_KEYS,
+  type DashboardCard,
+  type Density,
+  type RoutePath,
+  type SyncSettings,
+} from "@/lib/types";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -118,6 +129,9 @@ function SettingsPage() {
         <YourDaySection />
         <ThemeSection />
         <DashboardCardsSection />
+        <WorkspacesSection />
+        <DefaultRouteSection />
+        <NavVisibilitySection />
         <AppSection />
         <NotificationsSection />
         <SyncSection />
@@ -176,6 +190,7 @@ function LanguageSection() {
 function ThemeSection() {
   const { t, theme, setTheme } = usePrefs();
   const ready = useStore((s) => s.ready);
+  const settings = useStore((s) => s.settings);
   const pick = (th: Theme) => {
     setTheme(th);
     if (ready) settingsApi.update({ theme: th });
@@ -197,6 +212,14 @@ function ThemeSection() {
       {theme === "system" && (
         <p className="mt-3 text-xs text-muted-foreground">{t.settings.systemHint}</p>
       )}
+      <div className="mt-4 flex items-center justify-between gap-4">
+        <span className="text-sm">{t.settings.reducedMotion}</span>
+        <Switch
+          checked={settings.reducedMotion ?? false}
+          onChange={(v) => settingsApi.update({ reducedMotion: v })}
+          label={t.settings.reducedMotion}
+        />
+      </div>
     </fieldset>
   );
 }
@@ -360,6 +383,232 @@ function DashboardCardsSection() {
             </li>
           );
         })}
+      </ul>
+    </fieldset>
+  );
+}
+
+function WorkspacesSection() {
+  const { t } = usePrefs();
+  const ready = useStore((s) => s.ready);
+  const settings = useStore((s) => s.settings);
+  const list = settings.workspaces ?? [];
+  const activeId = settings.activeWorkspaceId;
+  const [saving, setSaving] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+
+  if (!ready) return <SkeletonPanel />;
+
+  const saveCurrent = () => {
+    if (workspaces.add(newName.trim())) {
+      setSaving(false);
+      setNewName("");
+    }
+  };
+
+  const switchWs = (id: string) => {
+    workspaces.switchTo(id);
+    toast(t.settings.workspaces.switched);
+  };
+
+  const commitRename = () => {
+    if (!renamingId) return;
+    if (renameDraft.trim()) workspaces.rename(renamingId, renameDraft.trim());
+    setRenamingId(null);
+  };
+
+  return (
+    <fieldset id="settings-workspaces" className="panel scroll-mt-6">
+      <legend className="panel-title">{t.settings.workspaces.title}</legend>
+      <p className="text-xs text-muted-foreground">{t.settings.workspaces.hint}</p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder={t.settings.workspaces.namePlaceholder}
+          className="h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-3 text-sm outline-none"
+        />
+        <button
+          type="button"
+          disabled={saving || !newName.trim()}
+          onClick={saveCurrent}
+          className={PRIMARY_BTN + " px-3 py-1.5"}
+        >
+          {t.settings.workspaces.save}
+        </button>
+      </div>
+
+      <ul className="mt-4 space-y-2">
+        {list.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{t.settings.workspaces.empty}</p>
+        ) : (
+          list.map((w) => {
+            const active = activeId === w.id;
+            return (
+              <li
+                key={w.id}
+                className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/30 p-2"
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  {renamingId === w.id ? (
+                    <input
+                      value={renameDraft}
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      defaultValue={w.name}
+                      onBlur={commitRename}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitRename();
+                        } else if (e.key === "Escape") {
+                          setRenamingId(null);
+                        }
+                      }}
+                      className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-sm outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <span className="truncate">
+                      {w.name}
+                      {active ? ` · ${t.settings.workspaces.active}` : ""}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {!active && (
+                    <button
+                      type="button"
+                      onClick={() => switchWs(w.id)}
+                      aria-label={`${t.settings.workspaces.switch}: ${w.name}`}
+                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent/40"
+                    >
+                      {t.settings.workspaces.switch}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRenameDraft(w.name);
+                      setRenamingId(w.id);
+                    }}
+                    aria-label={`${t.settings.workspaces.rename}: ${w.name}`}
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent/40"
+                  >
+                    <Edit className="size-3.5" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const copy = workspaces.duplicate(w.id);
+                      if (copy) toast(t.settings.workspaces.duplicated);
+                    }}
+                    aria-label={`${t.settings.workspaces.duplicate}: ${w.name}`}
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent/40"
+                  >
+                    <Copy className="size-3.5" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => workspaces.remove(w.id)}
+                    aria-label={`${t.settings.workspaces.delete}: ${w.name}`}
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-destructive"
+                  >
+                    <Trash2 className="size-3.5" aria-hidden />
+                  </button>
+                </div>
+              </li>
+            );
+          })
+        )}
+      </ul>
+
+      <div className="mt-5 border-t border-border/60 pt-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => workspaces.reset()}
+          className="text-xs text-destructive underline underline-offset-4 hover:text-destructive/80"
+        >
+          {t.settings.workspaces.reset}
+        </button>
+        <p className="text-xs text-muted-foreground">{t.settings.workspaces.resetHint}</p>
+      </div>
+    </fieldset>
+  );
+}
+
+const ROUTE_CHOICES: [RoutePath, string][] = [
+  ["/", "dashboard"],
+  ["/plan", "plan"],
+  ["/calendar", "calendar"],
+  ["/tasks", "tasks"],
+  ["/notes", "notes"],
+  ["/habits", "habits"],
+  ["/focus", "focus"],
+  ["/rewards", "rewards"],
+  ["/insights", "insights"],
+  ["/settings", "settings"],
+];
+
+function DefaultRouteSection() {
+  const { t } = usePrefs();
+  const ready = useStore((s) => s.ready);
+  const settings = useStore((s) => s.settings);
+  if (!ready) return <SkeletonPanel />;
+  const route = settings.defaultRoute ?? "/";
+
+  return (
+    <fieldset id="settings-default-route" className="panel scroll-mt-6">
+      <legend className="panel-title">{t.settings.defaultRoute}</legend>
+      <p className="text-xs text-muted-foreground">{t.settings.defaultRouteHint}</p>
+      <div className="mt-2">
+        <select
+          value={route}
+          onChange={(e) => settingsApi.update({ defaultRoute: e.target.value as RoutePath })}
+          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none"
+        >
+          {ROUTE_CHOICES.map(([path, labelKey]) => (
+            <option key={path} value={path}>
+              {t.nav[labelKey as keyof typeof t.nav]}
+            </option>
+          ))}
+        </select>
+      </div>
+    </fieldset>
+  );
+}
+
+function NavVisibilitySection() {
+  const { t } = usePrefs();
+  const ready = useStore((s) => s.ready);
+  const settings = useStore((s) => s.settings);
+  const hidden = settings.navVisibility ?? {};
+  if (!ready) return <SkeletonPanel />;
+
+  return (
+    <fieldset id="settings-nav-visibility" className="panel scroll-mt-6">
+      <legend className="panel-title">{t.settings.navVisibility}</legend>
+      <p className="text-xs text-muted-foreground">{t.settings.navVisibilityHint}</p>
+      <ul className="mt-3 space-y-1">
+        {NAV.filter((n) => n.key !== "settings").map((n) => (
+          <li
+            key={n.key}
+            className="flex items-center justify-between gap-4 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/20"
+          >
+            <span className="text-sm">{t.nav[n.key]}</span>
+            <Switch
+              checked={hidden[n.key] !== false}
+              onChange={(v) =>
+                settingsApi.update({
+                  navVisibility: { ...hidden, [n.key]: v },
+                })
+              }
+              label={t.nav[n.key]}
+            />
+          </li>
+        ))}
       </ul>
     </fieldset>
   );

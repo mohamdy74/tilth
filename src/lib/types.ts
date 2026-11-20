@@ -146,12 +146,38 @@ export interface Note extends BaseRecord {
 export type DashboardCard =
   "priorities" | "progress" | "deadlines" | "habits" | "focus" | "level" | "achievements";
 
+/** Application route paths, used for the default landing-page preference. */
+export type RoutePath =
+  | "/"
+  | "/plan"
+  | "/calendar"
+  | "/tasks"
+  | "/notes"
+  | "/habits"
+  | "/focus"
+  | "/rewards"
+  | "/insights"
+  | "/settings";
+
 export type Density = "comfortable" | "compact";
 
 /** Remembered arrangement of the dashboard: which visible cards and their order, plus density. */
 export interface DashboardLayout {
   cardOrder: DashboardCard[];
   density: Density;
+}
+
+/** A saved workspace configuration: a snapshot of UI preferences, never productivity data.
+ * Switching workspaces applies layout/visibility/density without touching tasks, habits or logs. */
+export interface WorkspaceConfig {
+  id: string;
+  name: string;
+  /** Snapshot of the dashboard layout at save time (card order + density). */
+  dashboardLayout?: DashboardLayout | undefined;
+  /** Snapshot of visible dashboard cards at save time. */
+  visibleCards?: Record<DashboardCard, boolean> | undefined;
+  createdAt: ISODate;
+  updatedAt: ISODate;
 }
 
 /** Per-section remembered preferences (additive optional; defaulted on read). */
@@ -244,6 +270,16 @@ export interface Settings {
   dashboardLayout?: DashboardLayout | undefined;
   /** Additive optional: per-section remembered preferences. Defaults computed on read. */
   sectionPrefs?: SectionPrefs | undefined;
+  /** Additive optional: saved workspace configurations. Never touches productivity data. */
+  workspaces?: WorkspaceConfig[] | undefined;
+  /** Additive optional: id of the active workspace whose layout/visibility are applied. */
+  activeWorkspaceId?: string | undefined;
+  /** Additive optional: route the app opens to on boot. Absent means "/" (Today dashboard). */
+  defaultRoute?: RoutePath | undefined;
+  /** Additive optional: nav destination keys the user has hidden. Settings is never hideable. */
+  navVisibility?: Record<string, boolean> | undefined;
+  /** Additive optional: disable motion transitions (e.g. card progress-ring animation). */
+  reducedMotion?: boolean | undefined;
   dailyFocusTargetMinutes: number;
   digest?: DigestPrefs | undefined;
   /** Remote-sync configuration. Additive optional field: absent means sync is off. */

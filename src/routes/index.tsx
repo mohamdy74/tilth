@@ -422,6 +422,7 @@ function PrioritiesCard({
 function ProgressCard({ progress }: { progress: DailyProgress }) {
   const { t, locale } = usePrefs();
   const ratio = progress.ratio;
+  const reducedMotion = useStore((s) => s.settings.reducedMotion ?? false);
   return (
     <Card title={t.settings.cards.progress} icon={<Target className="size-4" aria-hidden />}>
       <div className="flex h-full flex-col items-center justify-center gap-3 py-2 text-center">
@@ -474,7 +475,11 @@ function ProgressCard({ progress }: { progress: DailyProgress }) {
                   strokeDasharray={RING_C}
                   strokeDashoffset={RING_C * (1 - ratio)}
                   transform="rotate(-90 50 50)"
-                  style={{ transition: "stroke-dashoffset 700ms var(--ease-out)" }}
+                  style={
+                    reducedMotion
+                      ? undefined
+                      : { transition: "stroke-dashoffset 700ms var(--ease-out)" }
+                  }
                 />
               </svg>
               <p className="absolute inset-0 grid place-items-center font-display text-2xl font-semibold tabular-nums">

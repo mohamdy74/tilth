@@ -65,6 +65,7 @@ const navOf = (key: NavKey) => NAV.find((n) => n.key === key)!;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, setAccent } = usePrefs();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [needRefresh, setNeedRefresh] = useState(false);
   const activeSession = useStore((s) => s.focusSessions.find((x) => isActive(x)));
@@ -73,10 +74,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const settings = useStore((s) => s.settings);
   const settingsAccent = useStore((s) => s.settings.accent);
   const xpLedger = useStore((s) => s.xpLedger);
+  const reducedMotion = useStore((s) => s.settings.reducedMotion ?? false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [captureOpen, setCaptureOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const moreActive = MOBILE_MORE.some((k) => pathname === navOf(k).to);
+  const navVisibility = settings.navVisibility ?? {};
+  const defaultRoute = settings.defaultRoute ?? "/";
+  /** Ensures the one-time boot redirect to the default landing page runs once. */
+  const redirected = useRef(false);
+  const visibleMore = MOBILE_MORE.filter((key) => navVisibility[key] !== false);
+  const moreActive = visibleMore.some((k) => pathname === navOf(k).to);
   const settingsItem = navOf("settings");
   const seenUnlocks = useRef<Set<string> | null>(null);
 
@@ -92,6 +99,22 @@ export function AppShell({ children }: { children: ReactNode }) {
       }),
     );
   }, [ready, settingsAccent, xpLedger, unlocks, setAccent]);
+
+  // Reduced motion: expose the preference on <html> so components (e.g. the
+  // dashboard progress ring) can skip animations.
+  useEffect(() => {
+    document.documentElement.dataset["reducedMotion"] = String(reducedMotion);
+  }, [reducedMotion]);
+
+  // Default landing page: once the store has booted, a fresh visit to the
+  // dashboard redirects to the user's preferred route (one time only).
+  useEffect(() => {
+    if (!ready || redirected.current) return;
+    if (pathname === "/" && defaultRoute !== "/") {
+      redirected.current = true;
+      void navigate({ to: defaultRoute });
+    }
+  }, [ready, pathname, defaultRoute, navigate]);
 
   // Achievement unlock toast: the first run records existing unlocks
   // silently; only fresh unlocks afterwards toast, one at a time.
@@ -277,30 +300,34 @@ export function AppShell({ children }: { children: ReactNode }) {
           <kbd className="rounded border border-border px-1.5 text-[10px]">⌘K</kbd>
         </button>
         <nav aria-label={t.nav.mainNav} className="flex flex-col gap-5">
-          {NAV_GROUPS.map((group) => (
-            <div key={group.label}>
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {t.navGroups[group.label]}
-              </p>
-              <div className="flex flex-col gap-0.5">
-                {group.keys.map((key) => {
-                  const { to, icon: Icon } = navOf(key);
-                  return (
-                    <Link
-                      key={key}
-                      to={to}
-                      activeOptions={{ exact: to === "/" }}
-                      className="nav-link"
-                      activeProps={{ "aria-current": "page", className: "nav-link-active" }}
-                    >
-                      <Icon className="size-4" aria-hidden />
-                      {t.nav[key]}
-                    </Link>
-                  );
-                })}
+          {NAV_GROUPS.map((group) => {
+            const visibleKeys = group.keys.filter((key) => navVisibility[key] !== false);
+            if (visibleKeys.length === 0) return null;
+            return (
+              <div key={group.label}>
+                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {t.navGroups[group.label]}
+                </p>
+                <div className="flex flex-col gap-0.5">
+                  {visibleKeys.map((key) => {
+                    const { to, icon: Icon } = navOf(key);
+                    return (
+                      <Link
+                        key={key}
+                        to={to}
+                        activeOptions={{ exact: to === "/" }}
+                        className="nav-link"
+                        activeProps={{ "aria-current": "page", className: "nav-link-active" }}
+                      >
+                        <Icon className="size-4" aria-hidden />
+                        {t.nav[key]}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
         <div className="mt-auto pt-5">
           <Link
@@ -326,7 +353,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-sidebar/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
         <div className="grid grid-cols-6">
-          {MOBILE_PRIMARY.map((key) => {
+          {MOBILE_PRIMARY.filter((key) => navVisibility[key] !== false).map((key) => {
             const { to, icon: Icon } = navOf(key);
             return (
               <Link
@@ -406,7 +433,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SheetTitle>
           </SheetHeader>
           <nav aria-label={t.nav.more} className="flex flex-col gap-0.5">
-            {MOBILE_MORE.map((key) => {
+            {visibleMore.map((key) => {
               const { to, icon: Icon } = navOf(key);
               return (
                 <Link

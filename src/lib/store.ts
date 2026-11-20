@@ -20,6 +20,7 @@ import {
   STORAGE_KEYS,
   type CollectionKey,
   type DashboardLayout,
+  type WorkspaceConfig,
   type LocalDay,
   type FocusSession,
   type Habit,
@@ -708,6 +709,97 @@ export const settings = {
       settings: { ...useStore.getState().settings, ...patch, updatedAt: nowIso() },
     });
     schedule("settings");
+  },
+};
+
+/* ---------------- workspaces (saved UI configurations) ---------------- */
+
+/**
+ * Saved workspace configurations live in `settings` and capture only UI
+ * preferences (layout, visible cards, density). Switching a workspace never
+ * moves, duplicates or deletes tasks, habits or any other productivity data.
+ */
+export const workspaces = {
+  /** Saves the current UI configuration as a named workspace and makes it active. */
+  add(name: string): WorkspaceConfig | undefined {
+    const trimmed = name.trim();
+    if (!trimmed) return undefined;
+    const st = useStore.getState().settings;
+    const config: WorkspaceConfig = {
+      id: uid(),
+      name: trimmed,
+      dashboardLayout: st.dashboardLayout ? { ...st.dashboardLayout } : undefined,
+      visibleCards: st.dashboardCards ? { ...st.dashboardCards } : undefined,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    const next = [...(st.workspaces ?? []), config];
+    settings.update({ workspaces: next, activeWorkspaceId: config.id });
+    return config;
+  },
+
+  /** Applies a saved workspace's layout/visibility to the active settings. */
+  switchTo(id: string) {
+    const st = useStore.getState().settings;
+    const ws = st.workspaces?.find((w) => w.id === id);
+    if (!ws) return;
+    const patch: Partial<Omit<Settings, "updatedAt">> = { activeWorkspaceId: id };
+    if (ws.dashboardLayout) patch.dashboardLayout = { ...ws.dashboardLayout };
+    if (ws.visibleCards) patch.dashboardCards = { ...ws.visibleCards };
+    settings.update(patch);
+  },
+
+  rename(id: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    settings.update({
+      workspaces: (useStore.getState().settings.workspaces ?? []).map((w) =>
+        w.id === id ? { ...w, name: trimmed, updatedAt: nowIso() } : w,
+      ),
+    });
+  },
+
+  duplicate(id: string) {
+    const st = useStore.getState().settings;
+    const ws = st.workspaces?.find((w) => w.id === id);
+    if (!ws) return;
+    const copy: WorkspaceConfig = {
+      id: uid(),
+      name: `${ws.name} (copy)`,
+      dashboardLayout: ws.dashboardLayout ? { ...ws.dashboardLayout } : undefined,
+      visibleCards: ws.visibleCards ? { ...ws.visibleCards } : undefined,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    const next = [...(st.workspaces ?? []), copy];
+    settings.update({ workspaces: next, activeWorkspaceId: copy.id });
+    return copy;
+  },
+
+  remove(id: string) {
+    const st = useStore.getState().settings;
+    settings.update({
+      workspaces: st.workspaces?.filter((w) => w.id !== id),
+      ...(st.activeWorkspaceId === id ? { activeWorkspaceId: undefined } : {}),
+    });
+  },
+
+  /** Clears all saved workspaces and restores the factory layout/visibility. */
+  reset() {
+    settings.update({
+      workspaces: undefined,
+      activeWorkspaceId: undefined,
+      dashboardLayout: defaultDashboardLayout(),
+      dashboardCards: {
+        priorities: true,
+        progress: true,
+        deadlines: true,
+        habits: true,
+        focus: true,
+        level: true,
+        achievements: true,
+      },
+    });
   },
 };
 
