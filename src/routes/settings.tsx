@@ -627,7 +627,7 @@ function NavVisibilitySection() {
       <legend className="panel-title">{t.settings.navVisibility}</legend>
       <p className="text-xs text-muted-foreground">{t.settings.navVisibilityHint}</p>
       {atMinimum && <p className="mt-1 mb-3 text-xs text-warning">{t.settings.navVisibilityMin}</p>}
-      <ul className="mt-3 space-y-1">
+      <ul className="mt-3 space-y-2">
         {userOrder.map((key, index) => {
           const isVisible = hidden[key] !== false;
           const disabled = (atMinimum && isVisible) || (atMaximum && !isVisible);
@@ -636,13 +636,13 @@ function NavVisibilitySection() {
             <li
               key={key}
               className={
-                "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-colors" +
+                "flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/100" +
                 (disabled ? " opacity-50" : "") +
-                (isDragging ? " bg-accent/20" : "")
+                (isDragging ? " bg-accent/20 border border-accent" : " border-transparent")
               }
             >
               <div
-                className="flex items-center gap-2 cursor-grab active:cursor-select"
+                className="flex items-center gap-3 cursor-grab active:cursor-select"
                 onDragStart={(e) => {
                   setDraggedIndex(index);
                   e.dataTransfer.effectAllowed = "move";
@@ -662,7 +662,7 @@ function NavVisibilitySection() {
                 onDragEnd={() => setDraggedIndex(null)}
                 draggable
               >
-                <MoreVertical className="size-4 text-muted-foreground" aria-hidden />
+                <MoreVertical className="size-6 text-muted-foreground" aria-hidden />
               </div>
               <span className="text-sm truncate flex-1">{t.nav[key as keyof typeof t.nav]}</span>
               <Switch
