@@ -82,7 +82,8 @@ function DashboardPage() {
   const allLogs = useStore((s) => s.habitLogs);
   const allSessions = useStore((s) => s.focusSessions);
   const cards = useStore((s) => s.settings.dashboardCards);
-  const layout = useStore((s) => s.settings.dashboardLayout ?? defaultDashboardLayout());
+  const savedLayout = useStore((s) => s.settings.dashboardLayout);
+  const layout = savedLayout ?? defaultDashboardLayout();
   /** Visible dashboard cards in the user's remembered order (P0 customization). */
   const order = layout.cardOrder.filter((c) => cards[c]);
   const gap = layout.density === "compact" ? "gap-2" : "gap-4";

@@ -284,7 +284,8 @@ function DashboardCardsSection() {
   const { t } = usePrefs();
   const ready = useStore((s) => s.ready);
   const cards = useStore((s) => s.settings.dashboardCards);
-  const layout = useStore((s) => s.settings.dashboardLayout ?? defaultDashboardLayout());
+  const savedLayout = useStore((s) => s.settings.dashboardLayout);
+  const layout = savedLayout ?? defaultDashboardLayout();
   if (!ready) return <SkeletonPanel />;
 
   const move = (from: number, to: number) => {
