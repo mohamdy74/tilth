@@ -42,7 +42,7 @@ describe("workspaces (saved UI configurations)", () => {
     expect(useStore.getState().settings.activeWorkspaceId).toBe(ws!.id);
     const saved = useStore.getState().settings.workspaces;
     expect(saved).toHaveLength(1);
-    expect(saved![0].visibleCards).toEqual(expect.objectContaining({ priorities: true }));
+    expect(saved![0]!.visibleCards).toEqual(expect.objectContaining({ priorities: true }));
   });
 
   it("switching a workspace applies layout/visibility without touching data", () => {
@@ -51,14 +51,15 @@ describe("workspaces (saved UI configurations)", () => {
       dashboardLayout: { cardOrder: ["habits", "priorities"], density: "compact" },
     });
     const ws = workspaces.add("A");
+    expect(ws).toBeDefined();
     // change settings away from the captured layout
     settingsApi.update({
       dashboardLayout: defaultDashboardLayout(),
-      dashboardCards: { priorities: false },
+      dashboardCards: { ...defaultSettings().dashboardCards, priorities: false },
     });
-    workspaces.switchTo(ws.id);
+    workspaces.switchTo(ws!.id);
     const s = useStore.getState().settings;
-    expect(s.activeWorkspaceId).toBe(ws.id);
+    expect(s.activeWorkspaceId).toBe(ws!.id);
     expect(s.dashboardLayout?.density).toBe("compact");
     expect(s.dashboardLayout?.cardOrder).toEqual(["habits", "priorities"]);
     expect(s.dashboardCards.priorities).toBe(true);
