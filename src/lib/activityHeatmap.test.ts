@@ -230,8 +230,9 @@ describe("monthBlocks layout (literal pixel assertions)", () => {
     const blocks = monthBlocks(hm, "2028-02-15", 6);
     const feb = blocks.find((b) => b.year === 2028 && b.month === 2)!;
     const days = feb.cells.map((c) => c.day).sort();
-    const expected = Array.from({ length: 29 }, (_, i) =>
-      "2028-02-" + String(i + 1).padStart(2, "0"),
+    const expected = Array.from(
+      { length: 29 },
+      (_, i) => "2028-02-" + String(i + 1).padStart(2, "0"),
     );
     expect(days).toEqual(expected);
     expect(new Set(days).size).toBe(days.length);

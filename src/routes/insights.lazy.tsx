@@ -42,7 +42,6 @@ import {
   type Observation,
 } from "@/lib/insights";
 
-
 import { tasks as taskApi, todayLocal, useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { OUTLINE_BTN } from "@/components/ui/button";
@@ -670,7 +669,6 @@ function AggregatePanels() {
     </div>
   );
 }
-
 
 /* ---------------- time allocation panel ---------------- */
 

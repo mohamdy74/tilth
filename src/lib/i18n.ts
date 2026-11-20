@@ -19,6 +19,8 @@ const en = {
     insights: "Insights",
     settings: "Settings",
     more: "More",
+    mainNav: "Main navigation",
+    mobileNav: "Mobile navigation",
   },
   // Desktop sidebar section labels (audit TIL-F06) — short, scannable, verb-led.
   navGroups: {
@@ -748,7 +750,7 @@ const en = {
   heatmap: {
     title: "Activity",
     subtitle: "Daily activity from completed tasks, habits and focus sessions.",
-    summaryMonth: "{total} · {days} active days in {month}",
+    summaryMonth: "{total} · {days} in {month}",
     activityCount: {
       zero: "No activity",
       one: "{n} activity",
@@ -756,6 +758,14 @@ const en = {
       few: "{n} activities",
       many: "{n} activities",
       other: "{n} activities",
+    },
+    activeDaysCount: {
+      zero: "0 active days",
+      one: "1 active day",
+      two: "{n} active days",
+      few: "{n} active days",
+      many: "{n} active days",
+      other: "{n} active days",
     },
     today: "Today",
     less: "Less",
@@ -781,6 +791,8 @@ const ar: Dict = {
     insights: "الرؤى",
     settings: "الإعدادات",
     more: "المزيد",
+    mainNav: "التنقل الرئيسي",
+    mobileNav: "التنقل عبر الجوال",
   },
   navGroups: {
     plan: "خطّط",
@@ -1484,7 +1496,7 @@ const ar: Dict = {
   heatmap: {
     title: "النشاط",
     subtitle: "نشاطك اليومي من المهام والعادات وجلسات التركيز المكتملة.",
-    summaryMonth: "{total} · {days} أيام نشطة في {month}",
+    summaryMonth: "{total} · {days} في {month}",
     activityCount: {
       zero: "لا نشاط",
       one: "نشاط واحد",
@@ -1492,6 +1504,14 @@ const ar: Dict = {
       few: "{n} أنشطة",
       many: "{n} نشاطًا",
       other: "{n} نشاط",
+    },
+    activeDaysCount: {
+      zero: "0 أيام نشطة",
+      one: "يوم نشط واحد",
+      two: "يومان نشطان",
+      few: "{n} أيام نشطة",
+      many: "{n} يومًا نشطًا",
+      other: "{n} يوم نشط",
     },
     today: "اليوم",
     less: "أقل",

@@ -132,6 +132,13 @@ describe("csvCell", () => {
   it("quotes newlines", () => {
     expect(csvCell("line1\nline2")).toBe('"line1\nline2"');
   });
+
+  it("neutralizes spreadsheet formulas in user-controlled cells", () => {
+    expect(csvCell("=1+1")).toBe("'=1+1");
+    expect(csvCell("  =1+1")).toBe("'  =1+1");
+    expect(csvCell("+1")).toBe("'+1");
+    expect(csvCell("@cmd")).toBe("'@cmd");
+  });
 });
 
 describe("tasksToCsv", () => {

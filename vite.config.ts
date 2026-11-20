@@ -22,6 +22,9 @@ export default defineConfig({
     spa: { enabled: true },
   },
   vite: {
+    // Keep the explicit React pre-bundles, but do not crawl the whole app:
+    // discovery hangs on Windows and is unnecessary for the remaining ESM code.
+    optimizeDeps: { noDiscovery: true, include: ["recharts", "lodash/**/*.js"] },
     define: {
       // Diagnostics stamp: lets a phone and a desktop prove which build they run.
       __TILTH_BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace("T", " ")),

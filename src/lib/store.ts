@@ -762,15 +762,18 @@ export const sync = {
       const payload = fromSyncPayload(JSON.parse(plaintext));
       if (!payload) return { ok: false, error: "remote payload is malformed" };
       const at = new Date().toISOString();
-      const local = syncedCollectionsOf(s as unknown as Snapshot);
+      // Network/decryption can take seconds. Merge against edits made while
+      // the request was in flight, not the snapshot captured before it.
+      const local = syncedCollectionsOf(useStore.getState() as unknown as Snapshot);
       const { merged, conflicts } = mergeSync(local, payload.collections, at);
       for (const [k, records] of Object.entries(merged)) {
         setCollection(k as CollectionKey, () => records as unknown as Snapshot[CollectionKey]);
       }
+      const latest = useStore.getState();
       useStore.setState({
         settings: {
-          ...s.settings,
-          sync: { ...st, deviceId, lastSyncedAt: at, conflicts },
+          ...latest.settings,
+          sync: { ...(latest.settings.sync ?? st), deviceId, lastSyncedAt: at, conflicts },
           updatedAt: at,
         },
       });
@@ -796,7 +799,7 @@ export const sync = {
       const transport = await syncTransportFor(st);
       const at = new Date().toISOString();
       const payload = toSyncPayload({
-        collections: syncedCollectionsOf(s as unknown as Snapshot),
+        collections: syncedCollectionsOf(useStore.getState() as unknown as Snapshot),
         schemaVersion: CURRENT_SCHEMA_VERSION,
         deviceId,
         at,
@@ -804,8 +807,13 @@ export const sync = {
       const plaintext = JSON.stringify(payload);
       const blob = await encryptPayload(st.passphrase, plaintext);
       await transport.push(blob);
+      const latest = useStore.getState();
       useStore.setState({
-        settings: { ...s.settings, sync: { ...st, deviceId, lastSyncedAt: at }, updatedAt: at },
+        settings: {
+          ...latest.settings,
+          sync: { ...(latest.settings.sync ?? st), deviceId, lastSyncedAt: at },
+          updatedAt: at,
+        },
       });
       schedule("settings");
       return { ok: true };

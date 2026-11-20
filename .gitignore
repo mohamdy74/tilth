@@ -20,6 +20,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# OpenChamber session screenshots and local state
+.openchamber/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

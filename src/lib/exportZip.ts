@@ -22,7 +22,9 @@ export function exportZipFileName(d: Date = new Date()): string {
 
 /** One CSV cell, quoted (and inner quotes doubled) when it contains commas, quotes or newlines. */
 export function csvCell(v: string): string {
-  return /["\n\r,]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  // Spreadsheet apps evaluate formula-leading cells even when the CSV is quoted.
+  const safe = /^\s*[=+\-@]/.test(v) ? "'" + v : v;
+  return /["\n\r,]/.test(safe) ? '"' + safe.replace(/"/g, '""') + '"' : safe;
 }
 
 /** Tasks as UTF-8 CSV (BOM first, so spreadsheets read Arabic correctly). */

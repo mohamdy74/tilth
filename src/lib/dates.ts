@@ -44,9 +44,8 @@ export function currentTimeZone() {
 
 /** Guards imported or legacy timestamps before date formatting or timezone conversion. */
 export function isValidTimestamp(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.exec(
-    value,
-  );
+  const match =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.exec(value);
   if (!match || !Number.isFinite(Date.parse(value))) return false;
 
   const [, yearPart, monthPart, dayPart, hourPart, minutePart, secondPart] = match;

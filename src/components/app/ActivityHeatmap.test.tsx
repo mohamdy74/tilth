@@ -27,7 +27,10 @@ function render(today: string, weekStartsOn: number): string {
 
 // ---------------- T1: pure month grid ----------------
 
-function monthLayout(firstDay: string, weekStartsOn: number): {
+function monthLayout(
+  firstDay: string,
+  weekStartsOn: number,
+): {
   offset: number;
   cols: number;
   width: number;
@@ -104,7 +107,7 @@ function monthOptionsPure(today: string, counts: Map<string, number>): string[] 
     out.push(cursor);
     const parts = cursor.split("-");
     const y = Number(parts[0]!);
-    let m = Number(parts[1]!);
+    const m = Number(parts[1]!);
     let prevY = y;
     let prevM = m - 1;
     if (prevM < 1) {
@@ -127,8 +130,18 @@ describe("T2: month options", () => {
     const c = countsFor(["2025-12-14", "2026-01-01"]);
     const opts = monthOptionsPure("2026-11-19", c);
     expect(opts).toEqual([
-      "2026-11", "2026-10", "2026-09", "2026-08", "2026-07", "2026-06",
-      "2026-05", "2026-04", "2026-03", "2026-02", "2026-01", "2025-12",
+      "2026-11",
+      "2026-10",
+      "2026-09",
+      "2026-08",
+      "2026-07",
+      "2026-06",
+      "2026-05",
+      "2026-04",
+      "2026-03",
+      "2026-02",
+      "2026-01",
+      "2025-12",
     ]);
     expect(opts.length).toBe(12);
   });
@@ -163,8 +176,8 @@ describe("T2: month options", () => {
 describe("T3: SSR render (renderToStaticMarkup)", () => {
   it("cell 28px x 28px via inline style", () => {
     const html = render("2026-12-15", 6);
-    expect(html).toContain("w-[28px]");
-    expect(html).toContain("h-[28px]");
+    expect(html).toContain("width:28px");
+    expect(html).toContain("height:28px");
   });
 
   it("grid-template-columns repeat(cols,28px), rows repeat(7,28px), gap 6px", () => {
@@ -205,21 +218,44 @@ describe("T3: SSR render (renderToStaticMarkup)", () => {
 
   it("legend has 5 swatches of 16px and NO digits in legend text", () => {
     const html = render("2026-12-15", 6);
-    const levelSwatches = html.match(/w-\[16px\][^>]*bg-/g);
-    expect(levelSwatches).toHaveLength(5);
-    const legendRight = html.match(
-      /<div class="flex items-center gap-1\.5 text-right"[^>]*>(.*?)<\/div>/s,
-    )?.[1] ?? "";
+    const levelSwatches = html.match(/width:16px;height:16px[^>]*>/g);
+    expect(levelSwatches).toHaveLength(6); // 5 level swatches + 1 today swatch
+    const legendRight = html.match(/aria-label="Less — More"[^>]*>(.*?)<\/div>/s)?.[1] ?? "";
     const textNodes = legendRight.match(/>([^<]+)</g) ?? [];
     const textContent = textNodes.join("");
     expect(/[0-9]/.test(textContent)).toBe(false);
     expect(/[٠-٩]/.test(textContent)).toBe(false);
   });
 
-  it("root dir=ltr", () => {
+  it("weekday labels live OUTSIDE the cell grid, blocks dir=ltr", () => {
     const html = render("2026-12-15", 6);
-    expect(html).toContain('data-hm-root="true"');
+    expect(html).toContain("data-hm-block");
     expect(html).toContain('dir="ltr"');
+    // no span inside the grid owns a gridColumn of its own besides cells
+    const grid = html.match(/data-hm-grid[\s\S]*?<\/div>/)?.[0] ?? "";
+    expect(grid).not.toContain('gridColumn:"1"');
+  });
+
+  it("cells carry explicit grid-column/grid-row placement", () => {
+    const html = render("2026-12-15", 6);
+    expect(html).toContain("grid-column:");
+    expect(html).toContain("grid-row:");
+  });
+
+  it("month labels do not shift backward in a UTC+ timezone", () => {
+    const previous = process.env["TZ"];
+    process.env["TZ"] = "Africa/Cairo";
+    try {
+      const html = render("2026-11-20", 6);
+      const expected = new Intl.DateTimeFormat("ar-EG", {
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(Date.UTC(2026, 10, 1)));
+      expect(html).toContain(`value="2026-11" selected="">${expected}<`);
+    } finally {
+      process.env["TZ"] = previous;
+    }
   });
 });
 
@@ -262,7 +298,7 @@ describe("T4: nextFocusDay keyboard navigation", () => {
   });
 
   it("unknown key returns null", () => {
-    expect(nextFocusDay("2026-12-10", "PageDown" as any, today, dim)).toBe(null);
+    expect(nextFocusDay("2026-12-10", "PageDown", today, dim)).toBe(null);
   });
 });
 

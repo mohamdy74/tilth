@@ -92,8 +92,8 @@ describe("themes", () => {
  *          background oklch(0.975 0.008 95), --primary-foreground
  *          oklch(0.98 0.01 95), --accent oklch(0.9 0.05 H),
  *          --accent-foreground oklch(0.3 0.06 H);
- *   dark:  --primary oklch(0.78 0.09 H) on card oklch(0.11 0.006 155) /
- *          background oklch(0 0 0), --primary-foreground
+ *   dark:  --primary oklch(0.78 0.09 H) on card oklch(0.17 0.006 155) /
+ *          background oklch(0.015 0 0), --primary-foreground
  *          oklch(0.2 0.04 158), --accent oklch(0.34 0.06 H),
  *          --accent-foreground oklch(0.9 0.06 H).
  */
@@ -125,8 +125,8 @@ const ratio = (a: number, b: number) => {
 const AA = 4.5;
 
 describe("accent contrast (WCAG AA)", () => {
-  const card = { light: ok(0.99, 0.005, 95), dark: ok(0.11, 0.006, 155) };
-  const background = { light: ok(0.975, 0.008, 95), dark: ok(0, 0, 0) };
+  const card = { light: ok(0.99, 0.005, 95), dark: ok(0.17, 0.006, 155) };
+  const background = { light: ok(0.975, 0.008, 95), dark: ok(0.015, 0, 0) };
   const primaryFg = { light: ok(0.98, 0.01, 95), dark: ok(0.2, 0.04, 158) };
   const tokens = (mode: "light" | "dark") => ({
     primary: (mode === "light" ? [0.42, 0.08] : [0.78, 0.09]) as [number, number],
@@ -148,4 +148,15 @@ describe("accent contrast (WCAG AA)", () => {
       });
     }
   }
+});
+
+describe("navigation contrast", () => {
+  it("dark muted links and skip-link text meet AA", () => {
+    const muted = ok(0.78, 0.025, 90);
+    const sidebar = ok(0.06, 0, 0);
+    const primary = ok(0.78, 0.09, THEMES[0]!.hue);
+    const primaryFg = ok(0.2, 0.04, 158);
+    expect(ratio(lum(muted), lum(sidebar))).toBeGreaterThanOrEqual(AA);
+    expect(ratio(lum(primaryFg), lum(primary))).toBeGreaterThanOrEqual(AA);
+  });
 });

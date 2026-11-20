@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: |
           set +e
-          bun install > /tmp/bun-install.log 2>&1
+          bun install --frozen-lockfile > /tmp/bun-install.log 2>&1
           code=$?
           if [ $code -ne 0 ]; then
             echo "::error title=bun install failed::$(tail -c 700 /tmp/bun-install.log | tr '\n' ' ')"
@@ -44,7 +44,7 @@ jobs:
       - name: Install dependencies
         run: |
           set +e
-          bun install > /tmp/bun-install.log 2>&1
+          bun install --frozen-lockfile > /tmp/bun-install.log 2>&1
           code=$?
           if [ $code -ne 0 ]; then
             echo "::error title=bun install failed::$(tail -c 700 /tmp/bun-install.log | tr '\n' ' ')"

@@ -122,7 +122,7 @@ export interface MonthBlock {
   year: number;
   month: number; // 1..12
   offset: number; // leading empty cells before day 1 (0..6)
-  cols: number;   // number of columns spanned (1..7)
+  cols: number; // number of columns spanned (1..7)
   cells: MonthCell[];
 }
 

@@ -62,8 +62,8 @@ function makeBuffer(kind: Exclude<AmbienceKind, "off">, context: AudioContext): 
   return buffer;
 }
 
-/** Start (or switch) the ambience bed. Safe to call repeatedly; no-op for "off". */
-export function startAmbience(kind: AmbienceKind): void {
+/** Start (or switch) the ambience bed after the context resumes. Safe to call repeatedly. */
+export async function startAmbience(kind: AmbienceKind): Promise<void> {
   if (kind === "off") {
     stopAmbience();
     return;
@@ -71,7 +71,7 @@ export function startAmbience(kind: AmbienceKind): void {
   try {
     if (typeof AudioContext === "undefined") return;
     if (!ctx) ctx = new AudioContext();
-    void ctx.resume();
+    await ctx.resume();
     if (current === kind && source) return;
     stopNodes();
     stopThunder();

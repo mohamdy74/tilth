@@ -4,10 +4,19 @@ import { COLLECTION_KEYS, CURRENT_SCHEMA_VERSION, type Snapshot } from "./types"
 
 const stamp = "2026-01-01T00:00:00.000Z";
 const rec = (id: string) => ({ id, createdAt: stamp, updatedAt: stamp });
+const taskRec = (id: string) => ({
+  ...rec(id),
+  title: "Task " + id,
+  priority: "medium",
+  tags: [],
+  subtasks: [],
+  status: "todo",
+  kanbanOrder: 0,
+});
 
 const snapshot = (n = 1): Snapshot =>
   ({
-    tasks: Array.from({ length: n }, (_, i) => rec("t" + i)),
+    tasks: Array.from({ length: n }, (_, i) => taskRec("t" + i)),
     notes: [{ ...rec("n1"), title: "Note one", body: "hello" }],
     habits: [],
     habitLogs: [{ ...rec("l1"), habitId: "h1", localDay: "2026-01-01", status: "done" }],
@@ -112,6 +121,16 @@ describe("parseBackup validation", () => {
     expect(failCode(JSON.stringify(file))).toBe("invalid-shape");
   });
 
+  it("rejects null and wrongly typed records before they reach the store", () => {
+    const nullRecord = buildBackup(snapshot(1));
+    nullRecord.data.tasks = [null] as unknown as Snapshot["tasks"];
+    expect(failCode(JSON.stringify(nullRecord))).toBe("invalid-shape");
+
+    const wrongTitle = buildBackup(snapshot(1));
+    wrongTitle.data.tasks = [{ ...taskRec("bad"), title: 42 }] as unknown as Snapshot["tasks"];
+    expect(failCode(JSON.stringify(wrongTitle))).toBe("invalid-shape");
+  });
+
   it("rejects a newer schema version", () => {
     const file = {
       schemaVersion: CURRENT_SCHEMA_VERSION + 1,
@@ -131,7 +150,7 @@ describe("parseBackup migration", () => {
     const v0 = {
       schemaVersion: 0,
       exportedAt: "2026-01-02T03:04:05.000Z",
-      data: { tasks: [rec("t0"), rec("t1")], meta: {} },
+      data: { tasks: [taskRec("t0"), taskRec("t1")], meta: {} },
     };
     const parsed = parseBackup(JSON.stringify(v0));
     expect(parsed.migratedFrom).toBe(0);

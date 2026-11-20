@@ -124,7 +124,7 @@ export function templateFor(
 export function habitTemplateFor(
   id: string,
   locale: TemplateLocale,
-): Omit<HabitTemplate, "name" | "description"> & { name: string; description: string } | null {
+): (Omit<HabitTemplate, "name" | "description"> & { name: string; description: string }) | null {
   const tpl = HABIT_TEMPLATES.find((t) => t.id === id);
   if (!tpl) return null;
   return {
@@ -138,7 +138,7 @@ export function habitTemplateFor(
 export function taskTemplateFor(
   id: string,
   locale: TemplateLocale,
-): Omit<TaskTemplate, "title" | "notes"> & { title: string; notes?: string | undefined } | null {
+): (Omit<TaskTemplate, "title" | "notes"> & { title: string; notes?: string | undefined }) | null {
   const tpl = TASK_TEMPLATES.find((t) => t.id === id);
   if (!tpl) return null;
   return {

@@ -93,6 +93,7 @@ function FocusPage() {
 
   const pickAmbience = (k: AmbienceKind) => {
     setAmbience(k);
+    if (active && soundOn && k !== "off") void startAmbience(k);
     try {
       window.localStorage.setItem("tilth.focus-ambience", k);
     } catch {
@@ -103,6 +104,7 @@ function FocusPage() {
   const toggleSound = () => {
     const next = !soundOn;
     setSoundOn(next);
+    if (next && active && ambience !== "off") void startAmbience(ambience);
     try {
       window.localStorage.setItem("tilth.focus-sound", next ? "1" : "0");
     } catch {
@@ -132,9 +134,10 @@ function FocusPage() {
 
   const startWork = useCallback(() => {
     const minutes = mode === "pomodoro" ? 25 : customWork;
+    if (soundOn && ambience !== "off") void startAmbience(ambience);
     focusApi.start(mode, minutes, linkedTaskId === "" ? undefined : linkedTaskId);
     setBreakReady(null);
-  }, [mode, customWork, linkedTaskId]);
+  }, [mode, customWork, linkedTaskId, soundOn, ambience]);
 
   const startBreakSession = () => {
     const short = mode === "pomodoro" ? 5 : customBreak;

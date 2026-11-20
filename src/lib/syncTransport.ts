@@ -49,6 +49,7 @@ export function httpTransport(opts: {
     ...(opts.headers ?? {}),
     ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
   });
+  let etag: string | null = null;
   return {
     id: "http",
     async pull() {
@@ -60,6 +61,7 @@ export function httpTransport(opts: {
       }
       if (res.status === 404) return null;
       if (!res.ok) throw new SyncError(codeFor(res.status), `Remote answered ${res.status}`);
+      etag = res.headers.get("etag");
       return parseBlob(await res.text());
     },
     async push(blob: EncryptedBlob) {
@@ -67,7 +69,11 @@ export function httpTransport(opts: {
       try {
         res = await fetch(opts.url, {
           method: "PUT",
-          headers: { ...headers(), "content-type": "application/json" },
+          headers: {
+            ...headers(),
+            "content-type": "application/json",
+            ...(etag ? { "if-match": etag } : {}),
+          },
           body: JSON.stringify(blob),
         });
       } catch {
@@ -89,6 +95,7 @@ export function tilthTransport(opts: {
     "content-type": "application/json",
     ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
   });
+  let etag: string | null = null;
   return {
     id: "tilth",
     async pull() {
@@ -100,6 +107,7 @@ export function tilthTransport(opts: {
       }
       if (res.status === 404) return null;
       if (!res.ok) throw new SyncError(codeFor(res.status), `Sync server answered ${res.status}`);
+      etag = res.headers.get("etag");
       return parseBlob(await res.text());
     },
     async push(blob: EncryptedBlob) {
@@ -107,7 +115,7 @@ export function tilthTransport(opts: {
       try {
         res = await fetch(url, {
           method: "POST",
-          headers: headers(),
+          headers: { ...headers(), ...(etag ? { "if-match": etag } : {}) },
           body: JSON.stringify({ blob }),
         });
       } catch {

@@ -109,11 +109,11 @@
   --foreground: oklch(0.94 0.012 90);
   --card: oklch(0.17 0.006 155);
   --popover: oklch(0.19 0.008 155);
-  --primary: oklch(0.72 0.09 var(--accent-hue));
+  --primary: oklch(0.78 0.09 var(--accent-hue));
   --primary-foreground: oklch(0.2 0.04 158);
   --secondary: oklch(0.19 0.008 155);
   --muted: oklch(0.17 0.006 155);
-  --muted-foreground: oklch(0.74 0.025 90);
+  --muted-foreground: oklch(0.78 0.025 90);
   --accent: oklch(0.38 0.06 var(--accent-hue));
   --accent-foreground: oklch(0.92 0.06 var(--accent-hue));
   --destructive: oklch(0.64 0.17 28);
@@ -383,6 +383,15 @@
     box-shadow: var(--shadow-soft);
   }
 }
+/* Utility generation can place the base rule after the active rule. Compound
+ * selectors keep active text tied to its intended token in either order. */
+.nav-link.nav-link-active {
+  color: var(--color-accent-foreground);
+}
+.tab-link.tab-link-active {
+  color: var(--color-primary);
+}
+
 @utility skip-link {
   position: absolute;
   inset-inline-start: 1rem;

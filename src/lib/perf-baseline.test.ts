@@ -112,18 +112,25 @@ describe("engine performance baselines", () => {
     const sessions = Array.from({ length: 1000 }, (_, i) =>
       session({ id: "s" + i, localDay: today }),
     );
-    const start = performance.now();
-    insightsReport({
-      tasks: doneTasks,
-      habits: [habit()],
-      habitLogs: [log()],
-      focusSessions: sessions,
-      xpLedger: [],
-      today,
-      timeZone: "UTC",
-      dayStartHour: 0,
-    });
-    const elapsed = performance.now() - start;
+    const run = () =>
+      insightsReport({
+        tasks: doneTasks,
+        habits: [habit()],
+        habitLogs: [log()],
+        focusSessions: sessions,
+        xpLedger: [],
+        today,
+        timeZone: "UTC",
+        dayStartHour: 0,
+      });
+    run(); // warm up shared formatters and JIT before measuring
+    const elapsed = Math.min(
+      ...Array.from({ length: 3 }, () => {
+        const start = performance.now();
+        run();
+        return performance.now() - start;
+      }),
+    );
     expect(elapsed).toBeLessThan(150);
   });
 

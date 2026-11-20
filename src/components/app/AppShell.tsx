@@ -276,10 +276,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="flex-1 truncate">{t.command.open}</span>
           <kbd className="rounded border border-border px-1.5 text-[10px]">⌘K</kbd>
         </button>
-        <nav aria-label="Main" className="flex flex-col gap-5">
+        <nav aria-label={t.nav.mainNav} className="flex flex-col gap-5">
           {NAV_GROUPS.map((group) => (
             <div key={group.label}>
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {t.navGroups[group.label]}
               </p>
               <div className="flex flex-col gap-0.5">
@@ -322,7 +322,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
 
       <nav
-        aria-label="Main"
+        aria-label={t.nav.mobileNav}
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-sidebar/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
         <div className="grid grid-cols-6">

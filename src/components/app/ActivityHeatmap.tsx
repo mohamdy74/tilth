@@ -12,6 +12,7 @@ import {
   HEAT_GAP,
   HEAT_RADIUS,
   HEAT_WEEKDAY_COL,
+  HEAT_LABEL_GAP,
   HEAT_LEGEND_CELL,
   HEAT_DAYS,
 } from "@/lib/layoutConstants";
@@ -21,29 +22,12 @@ import { plural } from "@/lib/i18n";
 import { usePrefs } from "./preferences";
 import type { Locale } from "@/lib/i18n";
 
-const CELL = HEAT_CELL; // px
-const GAP = HEAT_GAP; // px
-const RADIUS = HEAT_RADIUS; // px
-const WEEKDAY_COL = HEAT_WEEKDAY_COL; // px
-const LEGEND_CELL = HEAT_LEGEND_CELL; // px
-const GRID_HEIGHT = HEAT_DAYS * HEAT_CELL + (HEAT_DAYS - 1) * HEAT_GAP; // px (232px)
-
+const GRID_HEIGHT = HEAT_DAYS * HEAT_CELL + (HEAT_DAYS - 1) * HEAT_GAP; // 232px
 
 /** Level->color mapping: level 0 = transparent (outline only), levels 1-4 =
- * existing accent token mixed over the card background. */
-const levelCls = (level: number): string => {
-  switch (level) {
-    case 1:
-      return "bg-[var(--hm-l1)]";
-    case 2:
-      return "bg-[var(--hm-l2)]";
-    case 3:
-      return "bg-[var(--hm-l3)]";
-    case 4:
-      return "bg-[var(--hm-l4)]";
-    default:
-      return "bg-transparent";
-  }
+ * accent token mixed over the card background (via --hm-* vars in styles.css). */
+const levelVar = (level: number): string => {
+  return level >= 1 ? `var(--hm-l${Math.min(level, 4)})` : "transparent";
 };
 
 function weekdayLabel(locale: Locale, weekStartsOn: number, j: number): string {
@@ -68,7 +52,7 @@ function monthOptions(today: LocalDay, counts: Map<LocalDay, number>): string[] 
     out.push(cursor);
     const parts = cursor.split("-");
     const y = Number(parts[0]!);
-    let m = Number(parts[1]!);
+    const m = Number(parts[1]!);
     let prevY = y;
     let prevM = m - 1;
     if (prevM < 1) {
@@ -85,7 +69,11 @@ function monthYearLabel(locale: Locale, key: string): string {
   const parts = key.split("-");
   const y = Number(parts[0]!);
   const m = Number(parts[1]!);
-  return formatDate(locale, new Date(y, m - 1, 1), { month: "short", year: "numeric", timeZone: "UTC" });
+  return formatDate(locale, new Date(Date.UTC(y, m - 1, 1)), {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 /** Pure keyboard navigation for the single-month grid. Returns the next
@@ -178,7 +166,7 @@ export function ActivityHeatmap({
   const options = useMemo(() => monthOptions(today, counts), [counts, today]);
   const currentKey = today.slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState<string>(() =>
-    options.includes(currentKey) ? currentKey : options[0] ?? currentKey,
+    options.includes(currentKey) ? currentKey : (options[0] ?? currentKey),
   );
   if (!options.includes(selectedMonth)) {
     setSelectedMonth(currentKey);
@@ -190,6 +178,12 @@ export function ActivityHeatmap({
   const sm = Number(smParts[1]!);
   const firstDayOfMonth = `${sy}-${String(sm).padStart(2, "0")}-01`;
   const dim = daysInMonth(firstDayOfMonth);
+  // UTC day of the 1st — never mix a local Date with getUTCDay (tz bug).
+  const weekdayIndexOfFirst = new Date(Date.UTC(sy, sm - 1, 1)).getUTCDay();
+  const offset = (weekdayIndexOfFirst - safeWeekStartsOn + 7) % 7;
+  const cols = Math.ceil((offset + dim) / 7);
+  const blockWidth = cols * HEAT_CELL + (cols - 1) * HEAT_GAP;
+
   const monthCells = useMemo(() => {
     const cells: Array<{
       day: LocalDay;
@@ -212,17 +206,11 @@ export function ActivityHeatmap({
     return cells;
   }, [counts, firstDayOfMonth, dim, today]);
 
-  // Offset / cols / row / col formulas (unchanged from spec v2).
-  const weekdayIndexOfFirst = new Date(sy, Number(sm) - 1, 1).getUTCDay();
-  const offset = (weekdayIndexOfFirst - safeWeekStartsOn + 7) % 7;
-  const cols = Math.ceil((offset + dim) / 7);
-  const blockWidth = cols * CELL + (cols - 1) * GAP;
-
   const totalActivities = monthCells.reduce((sum, c) => sum + c.count, 0);
   const activeDays = monthCells.filter((c) => c.count > 0).length;
   const summary = fill(t.heatmap.summaryMonth, {
     total: plural(locale, t.heatmap.activityCount, totalActivities),
-    days: plural(locale, t.heatmap.activityCount, activeDays),
+    days: plural(locale, t.heatmap.activeDaysCount, activeDays),
     month: monthYearLabel(locale, selectedMonth),
   });
 
@@ -237,25 +225,28 @@ export function ActivityHeatmap({
   };
 
   return (
-    <section className="panel mt-4 p-4" data-hm-root dir="ltr">
+    <section className="panel mt-4 p-4" data-hm-root>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
           <span className="text-primary" aria-hidden>
-            <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              className="size-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v1" />
             </svg>
           </span>
-          <h2 className="text-sm font-semibold">{t.heatmap.title}</h2>
+          <h2 className="truncate text-sm font-semibold">{t.heatmap.title}</h2>
         </div>
-        <label className="flex items-center gap-2 text-xs text-muted-foreground" htmlFor="hm-month">
-          {t.heatmap.monthDropdown}
-        </label>
         <select
           id="hm-month"
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
           aria-label={t.heatmap.monthDropdown}
-          className="h-9 min-w-[80px] rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground outline-none"
+          className="h-8 shrink-0 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground outline-none"
         >
           {options.map((key) => (
             <option key={key} value={key}>
@@ -264,99 +255,125 @@ export function ActivityHeatmap({
           ))}
         </select>
       </div>
-      <p className="mb-2 text-xs text-muted-foreground">{t.heatmap.subtitle}</p>
-      <p className="mt-2 text-sm font-medium tabular-nums" aria-live="polite">
+      <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{t.heatmap.subtitle}</p>
+
+      {/* Calendar block: fixed LTR geometry (grid placement is explicit, so
+          the visual result is identical in both document directions). */}
+      <div
+        className="flex w-fit items-start"
+        data-hm-block
+        data-cols={cols}
+        dir="ltr"
+        style={{ gap: HEAT_LABEL_GAP + "px" }}
+      >
+        {/* Weekday label column, beside — never inside — the cell grid. */}
+        <div
+          className="flex shrink-0 flex-col"
+          style={{ gap: HEAT_GAP + "px", width: HEAT_WEEKDAY_COL + "px" }}
+          aria-hidden="true"
+        >
+          {[...Array(HEAT_DAYS)].map((_, j) => (
+            <span
+              key={"wd-" + j}
+              className="flex items-center justify-end text-[10px] font-medium leading-none text-muted-foreground"
+              style={{ height: HEAT_CELL + "px", opacity: j % 2 === 1 ? 1 : 0 }}
+            >
+              {j % 2 === 1 ? weekdayLabel(locale, safeWeekStartsOn, j) : ""}
+            </span>
+          ))}
+        </div>
+        <div
+          className="grid"
+          data-hm-grid
+          style={{
+            gridTemplateColumns: `repeat(${cols}, ${HEAT_CELL}px)`,
+            gridTemplateRows: `repeat(${HEAT_DAYS}, ${HEAT_CELL}px)`,
+            gridAutoFlow: "column",
+            gap: HEAT_GAP + "px",
+            width: blockWidth + "px",
+            height: GRID_HEIGHT + "px",
+          }}
+        >
+          {monthCells.map((c) => {
+            const dayIndex = offset + Number(c.day.slice(8, 10)) - 1;
+            const row = (dayIndex % HEAT_DAYS) + 1;
+            const col = Math.floor(dayIndex / HEAT_DAYS) + 1;
+            const isToday = c.day === today;
+            const dateLabel = formatDate(locale, new Date(c.day + "T12:00:00Z"), {
+              dateStyle: "medium",
+              timeZone: "UTC",
+            });
+            const countLabel = plural(locale, t.heatmap.activityCount, c.count);
+            const isInteractive = !c.isFuture;
+            return (
+              <button
+                key={c.day}
+                type="button"
+                data-hm-cell
+                data-day={c.day}
+                aria-label={
+                  dateLabel + " — " + countLabel + (isToday ? " — " + t.heatmap.today : "")
+                }
+                title={dateLabel + " — " + countLabel + (isToday ? " — " + t.heatmap.today : "")}
+                disabled={!isInteractive}
+                aria-hidden={c.isFuture ? "true" : undefined}
+                tabIndex={isInteractive ? 0 : -1}
+                onKeyDown={(e) => handleCellKeyDown(e, c.day)}
+                style={{
+                  width: HEAT_CELL + "px",
+                  height: HEAT_CELL + "px",
+                  borderRadius: HEAT_RADIUS + "px",
+                  gridColumn: String(col),
+                  gridRow: String(row),
+                  backgroundColor: levelVar(c.level),
+                  boxShadow: isToday
+                    ? "0 0 0 2px var(--color-accent), inset 0 0 0 1px var(--hm-outline)"
+                    : "inset 0 0 0 1px var(--hm-outline)",
+                }}
+                className={
+                  "shrink-0 border-0 outline-none transition-colors " +
+                  (c.isFuture
+                    ? "cursor-not-allowed opacity-35"
+                    : "cursor-pointer hover:brightness-105 focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-0")
+                }
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <p className="mt-3 text-sm font-medium tabular-nums" aria-live="polite">
         {summary}
       </p>
 
-      <div
-        className="grid w-fit min-w-[calc(32px+1px)]"
-        data-hm-block
-        data-cols={cols}
-        style={{
-          gridTemplateColumns: `repeat(${cols}, ${CELL}px)`,
-          gridTemplateRows: `repeat(7, ${CELL}px)`,
-          gap: `${GAP}px`,
-          width: `${blockWidth}px`,
-          height: `${GRID_HEIGHT}px`,
-        }}
-      >
-        {/* Weekday label column on the left, rows 2, 4, 6 */}
-        {[...Array(HEAT_DAYS)].map((_, j) => {
-          const showLabel = j === 1 || j === 3 || j === 5;
-          return (
-            <span
-              key={"wd-" + j}
-              className={
-                `w-[${WEEKDAY_COL}px] h-[${CELL}px] shrink-0 text-[9px] leading-none text-muted-foreground flex items-center justify-center ` +
-                (showLabel ? "" : "opacity-0")
-              }
-              style={{
-                gridColumn: "1",
-                gridRow: j + 1,
-                width: WEEKDAY_COL + "px",
-                position: showLabel ? "sticky" : "static",
-                left: 0,
-                zIndex: showLabel ? 1 : 0,
-              }}
-            >
-              {showLabel ? weekdayLabel(locale, safeWeekStartsOn, j) : ""}
-            </span>
-          );
-        })}
-        {monthCells.map((c) => {
-          const isToday = c.day === today;
-          const dateLabel = formatDate(locale, new Date(c.day + "T12:00:00Z"), {
-            dateStyle: "medium",
-            timeZone: "UTC",
-          });
-          const countLabel = plural(locale, t.heatmap.activityCount, c.count);
-          const isInteractive = !c.isFuture;
-          return (
-            <button
-              key={c.day}
-              type="button"
-              data-hm-cell
-              data-day={c.day}
-              aria-label={
-                dateLabel +
-                " — " +
-                countLabel +
-                (isToday ? " — " + t.heatmap.today : "")
-              }
-              title={
-                dateLabel +
-                " — " +
-                countLabel +
-                (isToday ? " — " + t.heatmap.today : "")
-              }
-              disabled={!isInteractive}
-              aria-hidden={c.isFuture ? "true" : undefined}
-              tabIndex={isInteractive ? 0 : -1}
-              onKeyDown={(e) => handleCellKeyDown(e, c.day)}
-              className={
-                `w-[${CELL}px] h-[${CELL}px] shrink-0 rounded-[${RADIUS}px] border-0 outline-none ` +
-                levelCls(c.level) +
-                ` shadow-[inset_0_0_0_1px_var(--hm-outline)]` +
-                (isToday ? ` shadow-[0_0_0_2px_var(--color-accent)]` : "") +
-                (c.isFuture ? " opacity-40 cursor-not-allowed" : " hover:opacity-80")
-              }
-            />
-          );
-        })}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted-foreground">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
-          <span className={`w-[${LEGEND_CELL}px] h-[${LEGEND_CELL}px] rounded-[${RADIUS}px] shadow-[inset_0_0_0_1px_var(--hm-outline)] shadow-[0_0_0_2px_var(--color-accent)]`} aria-hidden="true" />
+          <span
+            aria-hidden="true"
+            style={{
+              width: HEAT_LEGEND_CELL + "px",
+              height: HEAT_LEGEND_CELL + "px",
+              borderRadius: HEAT_RADIUS + "px",
+              backgroundColor: "var(--color-card)",
+              boxShadow: "0 0 0 2px var(--color-accent), inset 0 0 0 1px var(--hm-outline)",
+            }}
+          />
           {t.heatmap.today}
         </span>
-        <div className="flex items-center gap-1.5 text-right" aria-label={t.heatmap.less + " — " + t.heatmap.more}>
+        <div className="flex items-center gap-1.5">
           <span>{t.heatmap.less}</span>
           {[0, 1, 2, 3, 4].map((lvl) => (
-            <span key={lvl} className="inline-flex items-center gap-1" aria-hidden="true">
-              <span className={`w-[${LEGEND_CELL}px] h-[${LEGEND_CELL}px] rounded-[${RADIUS}px] shadow-[inset_0_0_0_1px_var(--hm-outline)] ${levelCls(lvl)}`} />
-            </span>
+            <span
+              key={lvl}
+              aria-hidden="true"
+              style={{
+                width: HEAT_LEGEND_CELL + "px",
+                height: HEAT_LEGEND_CELL + "px",
+                borderRadius: HEAT_RADIUS + "px",
+                backgroundColor: levelVar(lvl),
+                boxShadow: "inset 0 0 0 1px var(--hm-outline)",
+              }}
+            />
           ))}
           <span>{t.heatmap.more}</span>
         </div>

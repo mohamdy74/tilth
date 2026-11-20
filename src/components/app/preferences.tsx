@@ -22,6 +22,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("ar");
   const [theme, setThemeState] = useState<Theme>("dark");
   const [accent, setAccentState] = useState<AccentId>(DEFAULT_ACCENT);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     try {
@@ -35,14 +36,20 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
     const html = document.documentElement;
     html.lang = locale;
     html.dir = dirOf(locale);
-    window.localStorage.setItem(KEY, JSON.stringify({ locale, theme, accent }));
-  }, [locale, theme, accent]);
+    if (!loaded) return;
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify({ locale, theme, accent }));
+    } catch {
+      /* preferences are best-effort when storage is unavailable */
+    }
+  }, [loaded, locale, theme, accent]);
 
   // Resolve the visual theme: an explicit choice, or the OS preference when "system".
   useEffect(() => {
