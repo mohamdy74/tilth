@@ -23,7 +23,7 @@ import {
 import { usePrefs, type Theme } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Segmented } from "@/components/app/Segmented";
-import { NAV } from "@/components/app/nav";
+import { NAV, type NavKey, MOBILE_PRIMARY } from "@/components/app/nav";
 import { Modal } from "@/components/app/Modal";
 import { DANGER_BTN, OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
 import { BackupError, parseBackup, type ParsedBackup } from "@/lib/backup";
@@ -587,28 +587,46 @@ function NavVisibilitySection() {
   const hidden = settings.navVisibility ?? {};
   if (!ready) return <SkeletonPanel />;
 
+  /** عدد العناصر الأساسية الظاهرة في شريط الجوال الرئيسي */
+  const visibleCount = MOBILE_PRIMARY.filter((k: NavKey) => hidden[k] !== false).length;
+  /** يمنع الإخفاء إذا سيصل عدد الظاهرين إلى أقل من 2 */
+  const atMinimum = visibleCount <= 2;
+
   return (
     <fieldset id="settings-nav-visibility" className="panel scroll-mt-6">
       <legend className="panel-title">{t.settings.navVisibility}</legend>
       <p className="text-xs text-muted-foreground">{t.settings.navVisibilityHint}</p>
+      {atMinimum && <p className="mt-1 mb-3 text-xs text-warning">{t.settings.navVisibilityMin}</p>}
       <ul className="mt-3 space-y-1">
-        {NAV.filter((n) => n.key !== "settings").map((n) => (
-          <li
-            key={n.key}
-            className="flex items-center justify-between gap-4 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/20"
-          >
-            <span className="text-sm">{t.nav[n.key]}</span>
-            <Switch
-              checked={hidden[n.key] !== false}
-              onChange={(v) =>
-                settingsApi.update({
-                  navVisibility: { ...hidden, [n.key]: v },
-                })
+        {NAV.filter((n) => n.key !== "settings").map((n) => {
+          const disabled = atMinimum && !hidden[n.key];
+          return (
+            <li
+              key={n.key}
+              className={
+                "flex items-center justify-between gap-4 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/20" +
+                (disabled ? " opacity-50" : "")
               }
-              label={t.nav[n.key]}
-            />
-          </li>
-        ))}
+            >
+              <span className="text-sm">{t.nav[n.key]}</span>
+              <Switch
+                checked={hidden[n.key] !== false}
+                onChange={(v) => {
+                  if (disabled) return;
+                  settingsApi.update({
+                    navVisibility: { ...hidden, [n.key]: v },
+                  });
+                }}
+                label={t.nav[n.key]}
+              />
+              {disabled && (
+                <span className="text-xs text-warning" title={t.settings.navVisibilityMin}>
+                  ⚠
+                </span>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </fieldset>
   );
