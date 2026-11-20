@@ -642,7 +642,7 @@ function NavVisibilitySection() {
               }
             >
               <div
-                className="flex items-center gap-3 cursor-grab active:cursor-select"
+                className="flex items-center gap-3 cursor-grab active:cursor-select p-2"
                 onDragStart={(e) => {
                   setDraggedIndex(index);
                   e.dataTransfer.effectAllowed = "move";
@@ -662,7 +662,7 @@ function NavVisibilitySection() {
                 onDragEnd={() => setDraggedIndex(null)}
                 draggable
               >
-                <MoreVertical className="size-6 text-muted-foreground" aria-hidden />
+                <MoreVertical className="size-8 text-muted-foreground" aria-hidden />
               </div>
               <span className="text-sm truncate flex-1">{t.nav[key as keyof typeof t.nav]}</span>
               <Switch
