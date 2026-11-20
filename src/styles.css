@@ -45,11 +45,6 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
-  --hm-outline: color-mix(in oklab, var(--color-foreground) 16%, transparent);
-  --hm-l1: color-mix(in oklab, var(--color-accent) 35%, var(--color-card));
-  --hm-l2: color-mix(in oklab, var(--color-accent) 55%, var(--color-card));
-  --hm-l3: color-mix(in oklab, var(--color-accent) 75%, var(--color-card));
-  --hm-l4: color-mix(in oklab, var(--color-accent) 100%, var(--color-card));
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
@@ -86,6 +81,9 @@
   --muted: oklch(0.955 0.01 100);
   --muted-foreground: oklch(0.5 0.03 150);
   --accent: oklch(0.9 0.05 var(--accent-hue));
+  --hm-outline: color-mix(in oklab, var(--color-foreground) 16%, transparent);
+  --hm-l1: color-mix(in oklab, var(--color-accent) 45%, var(--color-card));
+  --hm-l2: color-mix(in oklab, var(--color-accent) 100%, var(--color-card));
   --accent-foreground: oklch(0.3 0.06 var(--accent-hue));
   --destructive: oklch(0.56 0.19 30);
   --destructive-foreground: oklch(0.98 0 0);
@@ -115,6 +113,9 @@
   --muted: oklch(0.17 0.006 155);
   --muted-foreground: oklch(0.78 0.025 90);
   --accent: oklch(0.38 0.06 var(--accent-hue));
+  --hm-outline: color-mix(in oklab, var(--color-foreground) 16%, transparent);
+  --hm-l1: color-mix(in oklab, var(--color-accent) 45%, var(--color-card));
+  --hm-l2: color-mix(in oklab, var(--color-accent) 100%, var(--color-card));
   --accent-foreground: oklch(0.92 0.06 var(--accent-hue));
   --destructive: oklch(0.64 0.17 28);
   --border: oklch(0.3 0.008 155);

@@ -769,8 +769,9 @@ const en = {
       other: "{n} active days",
     },
     today: "Today",
-    less: "Less",
-    more: "More",
+    legendEmpty: "No activity",
+    legendLight: "1-5 activities",
+    legendSolid: "6+ activities",
     monthDropdown: "Month",
   },
 };
@@ -1516,8 +1517,9 @@ const ar: Dict = {
       other: "{n} يوم نشط",
     },
     today: "اليوم",
-    less: "أقل",
-    more: "أكثر",
+    legendEmpty: "لا نشاط",
+    legendLight: "١-٥ أنشطة",
+    legendSolid: "٦+ أنشطة",
     monthDropdown: "الشهر",
   },
 };
