@@ -751,6 +751,7 @@ const en = {
     title: "Activity",
     subtitle: "Daily activity from completed tasks, habits and focus sessions.",
     summaryMonth: "{total} · {days} in {month}",
+
     activityCount: {
       zero: "No activity",
       one: "{n} activity",
@@ -1497,6 +1498,7 @@ const ar: Dict = {
     title: "النشاط",
     subtitle: "نشاطك اليومي من المهام والعادات وجلسات التركيز المكتملة.",
     summaryMonth: "{total} · {days} في {month}",
+
     activityCount: {
       zero: "لا نشاط",
       one: "نشاط واحد",

@@ -24,7 +24,9 @@ async function etagOf(blob: EncryptedBlob): Promise<string> {
     "SHA-256",
     new TextEncoder().encode(JSON.stringify(blob)),
   );
-  return '"' + Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("") + '"';
+  return (
+    '"' + Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("") + '"'
+  );
 }
 
 async function storeBlob(request: Request): Promise<Response> {

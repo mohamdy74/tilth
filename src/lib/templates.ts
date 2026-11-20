@@ -73,7 +73,7 @@ export const HABIT_TEMPLATES: HabitTemplate[] = [
     name: { ar: "روتين الصباح", en: "Morning routine" },
     schedule: { type: "daily", days: [0, 1, 2, 3, 4, 5, 6] },
     description: {
-      ar: "عادة صغيرة تبدأ بها يومك،마다 يوم.",
+      ar: "عادة صغيرة تبدأ بها يومك.",
       en: "One small habit to start every day.",
     },
   },

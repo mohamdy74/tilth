@@ -22,7 +22,8 @@ const handlers = Route.options.server?.handlers as unknown as {
 function request(method: "GET" | "PUT", body?: unknown, headers?: Record<string, string>) {
   return new Request(URL, {
     method,
-    headers: body === undefined ? (headers ?? {}) : { "content-type": "application/json", ...headers },
+    headers:
+      body === undefined ? (headers ?? {}) : { "content-type": "application/json", ...headers },
     body: body === undefined ? null : JSON.stringify(body),
   });
 }
@@ -46,8 +47,7 @@ describe("sync API key and ETag preconditions", () => {
 
     expect((await handlers.PUT({ request: request("PUT", { blob }) })).status).toBe(428);
     expect(
-      (await handlers.PUT({ request: request("PUT", { blob }, { "if-match": '"stale"' }) }))
-        .status,
+      (await handlers.PUT({ request: request("PUT", { blob }, { "if-match": '"stale"' }) })).status,
     ).toBe(412);
 
     const updated = await handlers.PUT({
