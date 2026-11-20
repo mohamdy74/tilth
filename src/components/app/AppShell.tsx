@@ -27,6 +27,7 @@ import {
   habits as habitsApi,
   focus as focusApi,
   todayLocal,
+  settings as settingsApi,
 } from "@/lib/store";
 import { totalsFromLedger } from "@/lib/rewards";
 import { resolveAccent } from "@/lib/themes";
@@ -79,14 +80,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const defaultRoute = settings.defaultRoute ?? "/";
   /** Ensures the one-time boot redirect to the default landing page runs once. */
   const redirected = useRef(false);
-  /** الوحدات المفعلة حسب الترتيب الأصلي (ما عدا الإعدادات الثابتة). */
-  const enabledOrder = MOBILE_ORDER.filter((key) => navVisibility[key] !== false);
+  /** ترتيب المستخدم للوحدات، أو الترتيب الافتراضي إذا لم يتم حفظ ترتيب بعد. */
+  const userOrder: NavKey[] = (settings.navOrder ?? [...MOBILE_ORDER]) as NavKey[];
+  /** الوحدات المفعلة حسب ترتيب المستخدم (source of truth للشريط + المزيد + السايدبار). */
+  const enabledOrder = userOrder.filter((key) => navVisibility[key] !== false);
   /** أول 4 مفعلة تظهر في الشريط السفلي. */
   const barKeys = enabledOrder.slice(0, MOBILE_BAR_MAX);
   /** مفعلة لكنها خارج أول 4 تروح تلقائيًا لـ "المزيد". */
   const overflowKeys = enabledOrder.slice(MOBILE_BAR_MAX);
   /** مقفولة من المستخدم (ال State محفوظ، فقط الإظهار متغير). */
-  const disabledOrder = MOBILE_ORDER.filter((key) => navVisibility[key] === false);
+  const disabledOrder = userOrder.filter((key) => navVisibility[key] === false);
   /** كل ما يظهر في صفحة "المزيد": فائض الشريط + المقفلة + الإعدادات ثابتين في الأسفل. */
   const moreSheetKeys: NavKey[] = [...overflowKeys, ...disabledOrder, "settings"];
   const moreActive = moreSheetKeys.some((k) => pathname === navOf(k).to);
@@ -121,6 +124,46 @@ export function AppShell({ children }: { children: ReactNode }) {
       void navigate({ to: defaultRoute });
     }
   }, [ready, pathname, defaultRoute, navigate]);
+
+  // One-time nav migration: enforce 2–4 enabled limit on existing users.
+  // Runs once and sets navMigrationDone so it never repeats.
+  useEffect(() => {
+    if (!ready || settings.navMigrationDone) return;
+    const order = settings.navOrder ?? [...MOBILE_ORDER];
+    const hidden = settings.navVisibility ?? {};
+    let enabledCount = order.filter((k) => hidden[k] !== false).length;
+    const nextHidden = { ...hidden };
+    let changed = false;
+
+    if (enabledCount > 4) {
+      for (let i = 4; i < order.length; i++) {
+        const key = order[i]!;
+        if (nextHidden[key] !== false) {
+          nextHidden[key] = false;
+          changed = true;
+        }
+      }
+    } else if (enabledCount < 2) {
+      for (const k of order) {
+        if (enabledCount >= 2) break;
+        if (nextHidden[k] === false) {
+          nextHidden[k] = true;
+          enabledCount++;
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      settingsApi.update({
+        navOrder: order,
+        navVisibility: nextHidden,
+        navMigrationDone: true,
+      });
+    } else {
+      settingsApi.update({ navOrder: order, navMigrationDone: true });
+    }
+  }, [ready, settings]);
 
   // Achievement unlock toast: the first run records existing unlocks
   // silently; only fresh unlocks afterwards toast, one at a time.
@@ -307,7 +350,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </button>
         <nav aria-label={t.nav.mainNav} className="flex flex-col gap-5">
           {NAV_GROUPS.map((group) => {
-            const visibleKeys = group.keys.filter((key) => navVisibility[key] !== false);
+            const visibleKeys = group.keys
+              .filter((key) => navVisibility[key] !== false)
+              .sort((a, b) => userOrder.indexOf(a) - userOrder.indexOf(b));
             if (visibleKeys.length === 0) return null;
             return (
               <div key={group.label}>
@@ -326,7 +371,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         activeProps={{ "aria-current": "page", className: "nav-link-active" }}
                       >
                         <Icon className="size-4" aria-hidden />
-                        {t.nav[key]}
+                        {t.nav[key as keyof typeof t.nav]}
                       </Link>
                     );
                   })}
@@ -378,7 +423,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <span
                     className={`text-[10px] truncate text-center ${isActive ? "font-medium" : ""}`}
                   >
-                    {t.nav[key]}
+                    {t.nav[key as keyof typeof t.nav]}
                   </span>
                 </Link>
               );
@@ -468,7 +513,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   activeProps={{ "aria-current": "page", className: "nav-link-active" }}
                 >
                   <Icon className="size-4" aria-hidden />
-                  {t.nav[key]}
+                  {t.nav[key as keyof typeof t.nav]}
                 </Link>
               );
             })}

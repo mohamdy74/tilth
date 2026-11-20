@@ -276,8 +276,12 @@ export interface Settings {
   activeWorkspaceId?: string | undefined;
   /** Additive optional: route the app opens to on boot. Absent means "/" (Today dashboard). */
   defaultRoute?: RoutePath | undefined;
+  /** Additive optional: user-remembered order of nav items. Single source of truth for bottom bar, More page, and desktop sidebar. Defaults to MOBILE_ORDER. */
+  navOrder?: string[] | undefined;
   /** Additive optional: nav destination keys the user has hidden. Settings is never hideable. */
   navVisibility?: Record<string, boolean> | undefined;
+  /** Additive optional: one-time migration flag for nav visibility/order limits. */
+  navMigrationDone?: boolean | undefined;
   /** Additive optional: disable motion transitions (e.g. card progress-ring animation). */
   reducedMotion?: boolean | undefined;
   dailyFocusTargetMinutes: number;

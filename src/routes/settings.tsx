@@ -13,6 +13,7 @@ import {
   Keyboard,
   Monitor,
   Moon,
+  MoreVertical,
   RefreshCw,
   Smartphone,
   Sprout,
@@ -23,7 +24,7 @@ import {
 import { usePrefs, type Theme } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Segmented } from "@/components/app/Segmented";
-import { MOBILE_ORDER, MOBILE_BAR_MIN, MOBILE_BAR_MAX } from "@/components/app/nav";
+import { MOBILE_ORDER, MOBILE_BAR_MIN, MOBILE_BAR_MAX, type NavKey } from "@/components/app/nav";
 import { Modal } from "@/components/app/Modal";
 import { DANGER_BTN, OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
 import { BackupError, parseBackup, type ParsedBackup } from "@/lib/backup";
@@ -585,40 +586,56 @@ function NavVisibilitySection() {
   const ready = useStore((s) => s.ready);
   const settings = useStore((s) => s.settings);
   const hidden = settings.navVisibility ?? {};
-  if (!ready) return <SkeletonPanel />;
-
-  const visibleKeys = MOBILE_ORDER.filter((key) => hidden[key] !== false);
+  const userOrder: NavKey[] = (settings.navOrder ?? [...MOBILE_ORDER]) as NavKey[];
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const visibleKeys = userOrder.filter((key) => hidden[key] !== false);
   const atMinimum = visibleKeys.length <= MOBILE_BAR_MIN;
+  const atMaximum = visibleKeys.length >= MOBILE_BAR_MAX;
+  if (!ready) return <SkeletonPanel />;
 
   return (
     <fieldset id="settings-nav-visibility" className="panel scroll-mt-6">
       <legend className="panel-title">{t.settings.navVisibility}</legend>
       <p className="text-xs text-muted-foreground">{t.settings.navVisibilityHint}</p>
-      <p className="text-xs text-muted-foreground">{t.settings.navVisibilityLayout}</p>
       {atMinimum && <p className="mt-1 mb-3 text-xs text-warning">{t.settings.navVisibilityMin}</p>}
       <ul className="mt-3 space-y-1">
-        {MOBILE_ORDER.map((key) => {
+        {userOrder.map((key, index) => {
           const isVisible = hidden[key] !== false;
-          const disabled = atMinimum && isVisible;
-          const inBar = visibleKeys.indexOf(key) < MOBILE_BAR_MAX;
+          const disabled = (atMinimum && isVisible) || (atMaximum && !isVisible);
+          const isDragging = draggedIndex === index;
           return (
             <li
               key={key}
               className={
-                "flex items-center justify-between gap-4 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/20" +
-                (disabled ? " opacity-50" : "")
+                "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-colors" +
+                (disabled ? " opacity-50" : "") +
+                (isDragging ? " bg-accent/20" : "")
               }
             >
-              <div className="flex items-center gap-2">
-                <span className="text-sm">{t.nav[key]}</span>
-                {inBar ? (
-                  <span className="text-xs text-primary">{t.settings.navVisibilityInBar}</span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    {t.settings.navVisibilityInMore}
-                  </span>
-                )}
+              <div
+                className="flex items-center gap-2 cursor-grab active:cursor-select"
+                onDragStart={(e) => {
+                  setDraggedIndex(index);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(index));
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (draggedIndex !== null && draggedIndex !== index) {
+                    const next = [...userOrder];
+                    const [removed] = next.splice(draggedIndex!, 1);
+                    next.splice(index, 0, removed!);
+                    settingsApi.update({ navOrder: next });
+                    setDraggedIndex(index);
+                  }
+                }}
+                onDragEnd={() => setDraggedIndex(null)}
+                draggable
+              >
+                <MoreVertical className="size-4 text-muted-foreground" aria-hidden />
               </div>
+              <span className="text-sm truncate flex-1">{t.nav[key as keyof typeof t.nav]}</span>
               <Switch
                 checked={isVisible}
                 onChange={(v) => {
@@ -627,7 +644,7 @@ function NavVisibilitySection() {
                     navVisibility: { ...hidden, [key]: v },
                   });
                 }}
-                label={t.nav[key]}
+                label={t.nav[key as keyof typeof t.nav]}
               />
               {disabled && (
                 <span className="text-xs text-warning" title={t.settings.navVisibilityMin}>
