@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CalendarDays, ChevronLeft, ChevronRight, Columns, Sprout, Timer } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { usePrefs } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { OUTLINE_BTN } from "@/components/ui/button";
 import { Segmented } from "@/components/app/Segmented";
 import { addDays, addMonths, startOfMonth, weekdayOf } from "@/lib/dates";
 import { formatDate, formatNumber, type Locale } from "@/lib/i18n";
-import { todayLocal, useStore } from "@/lib/store";
+import { todayLocal, useStore, settings as settingsApi } from "@/lib/store";
 import { buildWeek, monthWeeks, weekDays, type WeekCell } from "@/lib/weekView";
 import type { LocalDay, Priority } from "@/lib/types";
 
@@ -46,8 +46,29 @@ function CalendarPage() {
   const allLogs = useStore((s) => s.habitLogs);
   const allSessions = useStore((s) => s.focusSessions);
   const weekStartsOn = useStore((s) => s.settings.weekStartsOn);
+  const calendarModePref = useStore((s) => s.settings.sectionPrefs?.calendar?.mode);
   const [anchor, setAnchor] = useState<LocalDay | null>(null);
   const [calMode, setCalMode] = useState<"week" | "month">("week");
+
+  // Hydrate the remembered calendar mode from settings after the store has
+  // booted (P2 customization). Runs once.
+  useEffect(() => {
+    if (!ready) return;
+    if (calendarModePref === "week" || calendarModePref === "month") {
+      setCalMode(calendarModePref);
+    }
+  }, [ready, calendarModePref]);
+
+  // Persist the user's calendar mode choice whenever they switch modes.
+  // Debounced 250 ms by the store; never touches calendar data.
+  useEffect(() => {
+    if (!ready) return;
+    const current = useStore.getState().settings.sectionPrefs ?? {};
+    settingsApi.update({
+      sectionPrefs: { ...current, calendar: { mode: calMode } },
+    });
+  }, [calMode, ready]);
+
   const [selected, setSelected] = useState<LocalDay | null>(null);
 
   // Derived data is memoized so store updates (and the focus timer's 500 ms

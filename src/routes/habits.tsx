@@ -21,7 +21,7 @@ import { OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
 import { toast } from "sonner";
 import { addDays, startOfWeek } from "@/lib/dates";
 import { formatDate, formatNumber, plural, type Locale } from "@/lib/i18n";
-import { habits as habitApi, todayLocal, useStore } from "@/lib/store";
+import { habits as habitApi, todayLocal, useStore, settings as settingsApi } from "@/lib/store";
 import {
   consistency30,
   dayKind,
@@ -74,6 +74,7 @@ function HabitsPage() {
   const allHabits = useStore((s) => s.habits);
   const allLogs = useStore((s) => s.habitLogs);
   const weekStartsOn = useStore((s) => s.settings.weekStartsOn);
+  const habitsTabPref = useStore((s) => s.settings.sectionPrefs?.habits?.tab);
   const [tab, setTab] = useState<TabKey>("today");
   const [showNew, setShowNew] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -94,6 +95,25 @@ function HabitsPage() {
       /* storage unavailable — ignore */
     }
   }, []);
+
+  // Hydrate the remembered habits tab from settings after the store has
+  // booted (P2 customization). Runs once.
+  useEffect(() => {
+    if (!ready) return;
+    if (habitsTabPref === "today" || habitsTabPref === "all") {
+      setTab(habitsTabPref);
+    }
+  }, [ready, habitsTabPref]);
+
+  // Persist the user's habits tab choice whenever they switch tabs.
+  // Debounced 250 ms by the store; never touches habit data.
+  useEffect(() => {
+    if (!ready) return;
+    const current = useStore.getState().settings.sectionPrefs ?? {};
+    settingsApi.update({
+      sectionPrefs: { ...current, habits: { tab } },
+    });
+  }, [tab, ready]);
 
   if (!ready) return <HabitsSkeleton />;
 

@@ -187,6 +187,12 @@ export interface SectionPrefs {
     mode: "list" | "board";
     sort: TaskSort;
   };
+  habits?: {
+    tab: "today" | "all";
+  };
+  calendar?: {
+    mode: "week" | "month";
+  };
 }
 
 /** The task-list buckets a view can be built on. */

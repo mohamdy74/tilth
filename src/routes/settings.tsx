@@ -313,10 +313,20 @@ function DashboardCardsSection() {
   if (!ready) return <SkeletonPanel />;
 
   const move = (from: number, to: number) => {
+    const prev = layout.cardOrder.join(",");
     const next = [...layout.cardOrder];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved!);
     settingsApi.update({ dashboardLayout: { ...layout, cardOrder: next } });
+    toast(t.settings.orderChanged, {
+      action: {
+        label: t.settings.undo,
+        onClick: () =>
+          settingsApi.update({
+            dashboardLayout: { ...layout, cardOrder: prev.split(",") as DashboardCard[] },
+          }),
+      },
+    });
   };
 
   return (
@@ -329,11 +339,21 @@ function DashboardCardsSection() {
         <Segmented
           label={t.settings.density}
           value={layout.density}
-          onChange={(v) =>
+          onChange={(v) => {
+            const prev = layout.density;
             settingsApi.update({
               dashboardLayout: { ...layout, density: v as Density },
-            })
-          }
+            });
+            toast(t.settings.densityChanged, {
+              action: {
+                label: t.settings.undo,
+                onClick: () =>
+                  settingsApi.update({
+                    dashboardLayout: { ...layout, density: prev },
+                  }),
+              },
+            });
+          }}
           options={[
             { value: "comfortable", label: t.settings.densityComfortable },
             { value: "compact", label: t.settings.densityCompact },
@@ -355,7 +375,16 @@ function DashboardCardsSection() {
                 <span className="text-sm">{t.settings.cards[c]}</span>
                 <Switch
                   checked={visible}
-                  onChange={(v) => settingsApi.update({ dashboardCards: { ...cards, [c]: v } })}
+                  onChange={(v) => {
+                    const prevCards = { ...cards };
+                    settingsApi.update({ dashboardCards: { ...cards, [c]: v } });
+                    toast(t.settings.cardToggled.replace("{name}", t.settings.cards[c]), {
+                      action: {
+                        label: t.settings.undo,
+                        onClick: () => settingsApi.update({ dashboardCards: prevCards }),
+                      },
+                    });
+                  }}
                   label={t.settings.cards[c]}
                 />
                 {shown && (
@@ -640,9 +669,21 @@ function NavVisibilitySection() {
                 checked={isVisible}
                 onChange={(v) => {
                   if (disabled) return;
+                  const prevHidden = { ...hidden };
                   settingsApi.update({
                     navVisibility: { ...hidden, [key]: v },
                   });
+                  toast(
+                    v
+                      ? t.settings.navShown.replace("{name}", t.nav[key as keyof typeof t.nav])
+                      : t.settings.navHidden.replace("{name}", t.nav[key as keyof typeof t.nav]),
+                    {
+                      action: {
+                        label: t.settings.undo,
+                        onClick: () => settingsApi.update({ navVisibility: prevHidden }),
+                      },
+                    },
+                  );
                 }}
                 label={t.nav[key as keyof typeof t.nav]}
               />

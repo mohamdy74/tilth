@@ -636,6 +636,10 @@ const en = {
     density: "Information density",
     densityComfortable: "Comfortable",
     densityCompact: "Compact",
+    densityChanged: "Density changed",
+    orderChanged: "Card order changed",
+    cardToggled: "{name} toggled",
+    undo: "Undo",
     cards: {
       priorities: "Priorities",
       progress: "Progress",
@@ -656,6 +660,8 @@ const en = {
     navVisibilityInBar: "In bar",
     navVisibilityInMore: "In More",
     navVisibilityMin: "Keep at least 2 items visible in the bottom bar.",
+    navShown: "{name} shown",
+    navHidden: "{name} hidden",
     reducedMotion: "Reduce motion",
     workspaces: {
       title: "Workspaces",
@@ -1383,6 +1389,10 @@ const ar: Dict = {
     density: "كثافة المعلومات",
     densityComfortable: "مريح",
     densityCompact: "مدمج",
+    densityChanged: "تم تغيير الكثافة",
+    orderChanged: "تم تغيير ترتيب البطاقات",
+    cardToggled: "{name} تم تبديله",
+    undo: "تراجع",
     cards: {
       priorities: "الأولويات",
       progress: "التقدّم",
@@ -1402,6 +1412,8 @@ const ar: Dict = {
     navVisibilityInBar: "في الشريط",
     navVisibilityInMore: "في المزيد",
     navVisibilityMin: "لازم يفضل عنصرين على الأقل في الشريط السفلي.",
+    navShown: "{name} ظهر",
+    navHidden: "{name} أخفى",
     reducedMotion: "تقليل الحركة",
     workspaces: {
       title: "مساحات العمل",
