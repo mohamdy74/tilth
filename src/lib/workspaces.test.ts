@@ -1,6 +1,13 @@
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it } from "vitest";
-import { defaultDashboardLayout, defaultSettings, flushAll, settings as settingsApi, useStore, workspaces } from "./store";
+import {
+  defaultDashboardLayout,
+  defaultSettings,
+  flushAll,
+  settings as settingsApi,
+  useStore,
+  workspaces,
+} from "./store";
 import { COLLECTION_KEYS, CURRENT_SCHEMA_VERSION } from "./types";
 
 function resetStore() {

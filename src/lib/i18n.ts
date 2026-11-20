@@ -650,6 +650,12 @@ const en = {
     navVisibility: "Visible navigation items",
     navVisibilityHint:
       "Hide modules you don't use from the sidebar and mobile bar. Settings always stays reachable.",
+    navVisibilityLayout:
+      "The first 4 enabled items appear in the bottom bar; the rest appear in the " +
+      '"More" page.',
+    navVisibilityInBar: "In bar",
+    navVisibilityInMore: "In More",
+    navVisibilityMin: "Keep at least 2 items visible in the bottom bar.",
     reducedMotion: "Reduce motion",
     workspaces: {
       title: "Workspaces",
@@ -1391,6 +1397,11 @@ const ar: Dict = {
     navVisibility: "عناصر التنقل الظاهرة",
     navVisibilityHint:
       "أخفِ الوحدات التي لا تستخدمها من الشريط الجانبي وشريط الجوال. الإعدادات تظل قابلة للوصول دائمًا.",
+    navVisibilityLayout:
+      "أول 4 عناصر مفعّلة تظهر في الشريط السفلي، والباقي يظهر في صفحة " + '"المزيد".',
+    navVisibilityInBar: "في الشريط",
+    navVisibilityInMore: "في المزيد",
+    navVisibilityMin: "لازم يفضل عنصرين على الأقل في الشريط السفلي.",
     reducedMotion: "تقليل الحركة",
     workspaces: {
       title: "مساحات العمل",

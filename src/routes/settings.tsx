@@ -23,7 +23,7 @@ import {
 import { usePrefs, type Theme } from "@/components/app/preferences";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Segmented } from "@/components/app/Segmented";
-import { NAV } from "@/components/app/nav";
+import { MOBILE_ORDER, MOBILE_BAR_MIN, MOBILE_BAR_MAX } from "@/components/app/nav";
 import { Modal } from "@/components/app/Modal";
 import { DANGER_BTN, OUTLINE_BTN, PRIMARY_BTN } from "@/components/ui/button";
 import { BackupError, parseBackup, type ParsedBackup } from "@/lib/backup";
@@ -587,28 +587,56 @@ function NavVisibilitySection() {
   const hidden = settings.navVisibility ?? {};
   if (!ready) return <SkeletonPanel />;
 
+  const visibleKeys = MOBILE_ORDER.filter((key) => hidden[key] !== false);
+  const atMinimum = visibleKeys.length <= MOBILE_BAR_MIN;
+
   return (
     <fieldset id="settings-nav-visibility" className="panel scroll-mt-6">
       <legend className="panel-title">{t.settings.navVisibility}</legend>
       <p className="text-xs text-muted-foreground">{t.settings.navVisibilityHint}</p>
+      <p className="text-xs text-muted-foreground">{t.settings.navVisibilityLayout}</p>
+      {atMinimum && <p className="mt-1 mb-3 text-xs text-warning">{t.settings.navVisibilityMin}</p>}
       <ul className="mt-3 space-y-1">
-        {NAV.filter((n) => n.key !== "settings").map((n) => (
-          <li
-            key={n.key}
-            className="flex items-center justify-between gap-4 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/20"
-          >
-            <span className="text-sm">{t.nav[n.key]}</span>
-            <Switch
-              checked={hidden[n.key] !== false}
-              onChange={(v) =>
-                settingsApi.update({
-                  navVisibility: { ...hidden, [n.key]: v },
-                })
+        {MOBILE_ORDER.map((key) => {
+          const isVisible = hidden[key] !== false;
+          const disabled = atMinimum && isVisible;
+          const inBar = visibleKeys.indexOf(key) < MOBILE_BAR_MAX;
+          return (
+            <li
+              key={key}
+              className={
+                "flex items-center justify-between gap-4 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/20" +
+                (disabled ? " opacity-50" : "")
               }
-              label={t.nav[n.key]}
-            />
-          </li>
-        ))}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{t.nav[key]}</span>
+                {inBar ? (
+                  <span className="text-xs text-primary">{t.settings.navVisibilityInBar}</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    {t.settings.navVisibilityInMore}
+                  </span>
+                )}
+              </div>
+              <Switch
+                checked={isVisible}
+                onChange={(v) => {
+                  if (disabled) return;
+                  settingsApi.update({
+                    navVisibility: { ...hidden, [key]: v },
+                  });
+                }}
+                label={t.nav[key]}
+              />
+              {disabled && (
+                <span className="text-xs text-warning" title={t.settings.navVisibilityMin}>
+                  ⚠
+                </span>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </fieldset>
   );

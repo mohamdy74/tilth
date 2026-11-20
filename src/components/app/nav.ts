@@ -51,3 +51,20 @@ export const NAV: NavItem[] = [
   { key: "insights", to: "/insights", icon: BarChart3 },
   { key: "settings", to: "/settings", icon: Settings },
 ];
+
+/** ترتيب الوحدات الأصلي usato لتحديد أول 4 تظهر في الشريط السفلي. */
+export const MOBILE_ORDER: NavKey[] = [
+  "dashboard",
+  "plan",
+  "calendar",
+  "tasks",
+  "notes",
+  "habits",
+  "focus",
+  "rewards",
+  "insights",
+];
+
+/** الحد الأدنى والأقصى للعناصر الظاهرة في الشريط السفلي (باستثناء زر "المزيد"). */
+export const MOBILE_BAR_MIN = 2;
+export const MOBILE_BAR_MAX = 4;

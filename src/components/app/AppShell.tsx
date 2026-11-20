@@ -15,8 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { NAV, type NavKey } from "./nav";
-import { cn } from "@/lib/utils";
+import { NAV, type NavKey, MOBILE_ORDER, MOBILE_BAR_MAX } from "./nav";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -59,8 +58,6 @@ const NAV_GROUPS: { label: "plan" | "do" | "keep" | "grow"; keys: NavKey[] }[] =
   { label: "keep", keys: ["notes"] },
   { label: "grow", keys: ["rewards", "insights"] },
 ];
-const MOBILE_PRIMARY: NavKey[] = ["dashboard", "plan", "tasks", "focus", "habits"];
-const MOBILE_MORE: NavKey[] = ["calendar", "notes", "rewards", "insights", "settings"];
 const navOf = (key: NavKey) => NAV.find((n) => n.key === key)!;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -82,8 +79,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const defaultRoute = settings.defaultRoute ?? "/";
   /** Ensures the one-time boot redirect to the default landing page runs once. */
   const redirected = useRef(false);
-  const visibleMore = MOBILE_MORE.filter((key) => navVisibility[key] !== false);
-  const moreActive = visibleMore.some((k) => pathname === navOf(k).to);
+  /** الوحدات المفعلة حسب الترتيب الأصلي (ما عدا الإعدادات الثابتة). */
+  const enabledOrder = MOBILE_ORDER.filter((key) => navVisibility[key] !== false);
+  /** أول 4 مفعلة تظهر في الشريط السفلي. */
+  const barKeys = enabledOrder.slice(0, MOBILE_BAR_MAX);
+  /** مفعلة لكنها خارج أول 4 تروح تلقائيًا لـ "المزيد". */
+  const overflowKeys = enabledOrder.slice(MOBILE_BAR_MAX);
+  /** مقفولة من المستخدم (ال State محفوظ، فقط الإظهار متغير). */
+  const disabledOrder = MOBILE_ORDER.filter((key) => navVisibility[key] === false);
+  /** كل ما يظهر في صفحة "المزيد": فائض الشريط + المقفلة + الإعدادات ثابتين في الأسفل. */
+  const moreSheetKeys: NavKey[] = [...overflowKeys, ...disabledOrder, "settings"];
+  const moreActive = moreSheetKeys.some((k) => pathname === navOf(k).to);
   const settingsItem = navOf("settings");
   const seenUnlocks = useRef<Set<string> | null>(null);
 
@@ -352,32 +358,49 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label={t.nav.mobileNav}
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-sidebar/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
-        <div className="grid grid-cols-6">
-          {MOBILE_PRIMARY.filter((key) => navVisibility[key] !== false).map((key) => {
-            const { to, icon: Icon } = navOf(key);
-            return (
-              <Link
-                key={key}
-                to={to}
-                activeOptions={{ exact: to === "/" }}
-                className="tab-link"
-                activeProps={{ "aria-current": "page", className: "tab-link-active" }}
+        <div className="max-w-[480px] mx-auto">
+          <div className="flex w-full items-center justify-center gap-0.5 px-2">
+            {barKeys.map((key) => {
+              const { to, icon: Icon } = navOf(key);
+              const isActive = pathname === navOf(key).to;
+              return (
+                <Link
+                  key={key}
+                  to={to}
+                  activeOptions={{ exact: to === "/" }}
+                  className="tab-link flex-1 flex flex-col items-center justify-center gap-1 px-2 py-2"
+                  activeProps={{ "aria-current": "page", className: "tab-link-active" }}
+                >
+                  <Icon
+                    className={`size-5 ${isActive ? "text-primary" : "text-muted-foreground"}`}
+                    aria-hidden
+                  />
+                  <span
+                    className={`text-[10px] truncate text-center ${isActive ? "font-medium" : ""}`}
+                  >
+                    {t.nav[key]}
+                  </span>
+                </Link>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setMoreOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={moreOpen}
+              className="tab-link flex-1 flex flex-col items-center justify-center gap-1 px-2 py-2"
+            >
+              <Ellipsis
+                className={`size-5 ${moreOpen || moreActive ? "text-primary" : "text-muted-foreground"}`}
+                aria-hidden
+              />
+              <span
+                className={`text-[10px] truncate text-center ${moreOpen || moreActive ? "font-medium" : ""}`}
               >
-                <Icon className="size-5" aria-hidden />
-                <span className="w-full truncate text-center">{t.nav[key]}</span>
-              </Link>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => setMoreOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={moreOpen}
-            className={cn("tab-link", (moreOpen || moreActive) && "tab-link-active")}
-          >
-            <Ellipsis className="size-5" aria-hidden />
-            <span className="w-full truncate text-center">{t.nav.more}</span>
-          </button>
+                {t.nav.more}
+              </span>
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -433,7 +456,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SheetTitle>
           </SheetHeader>
           <nav aria-label={t.nav.more} className="flex flex-col gap-0.5">
-            {visibleMore.map((key) => {
+            {moreSheetKeys.map((key) => {
               const { to, icon: Icon } = navOf(key);
               return (
                 <Link
