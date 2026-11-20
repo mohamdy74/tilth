@@ -439,6 +439,12 @@ dayStartHour, timeZone)` — the same convention as the insights engine),
   reachable from the SSR bundle — workerd forbids them in global scope and the
   whole app 500s. Generate values lazily inside functions (see `tabId()` in
   `src/lib/store.ts`).
+- **Zustand selector stability:** Never construct new object or array references
+  inside store selectors (e.g. `useStore(s => s.x ?? defaultObj())` or inline
+  `.filter()` / `.map()`). Select the raw state reference and compute fallbacks
+  or transformations outside the selector (or use `useShallow`), because
+  returning a new reference on every snapshot check triggers an infinite
+  re-render loop (`Maximum update depth exceeded`).
 - The `workerd-smoke` CI job builds the app, serves it with wrangler (workerd),
   and requires 200 from `/` and `/settings`. Keep it passing; it is the only
   gate that runs the real production runtime.
